@@ -43,6 +43,11 @@ export function buildLessons(state: GameState, outcome: Outcome): string[] {
     lessons.push('Um micrometeoroide danificou a nave. Um escudo de micrometeoroides é peso "morto" que salva missões.');
   }
 
+  const damaged = ship.components.filter((c) => c.damaged).map((c) => cards.find((card) => card.id === c.id)?.name ?? c.id);
+  if (damaged.length) {
+    lessons.push(`Componentes perdidos durante o voo: ${damaged.join(', ')}. Cada perda reduz o que a nave consegue fazer até o fim da missão.`);
+  }
+
   if (has('arrival-no-deltav')) {
     lessons.push(
       'Faltou propelente para frear no destino. Pela equação do foguete, cada quilo a mais de massa seca reduz o delta-v; um tanque extra ou menos carga resolveria.',

@@ -127,7 +127,7 @@ export function canUseAbility(state: GameState, crewId: string, phase: Phase = s
   return Boolean(crew?.active) && hasCrew(state.design, crewId) && !state.usedAbilities.includes(`${crewId}:${phase}`);
 }
 
-function useAbility(s: GameState, crewId: string, requested: string[] | undefined, phase: Phase = s.phase): boolean {
+function spendAbility(s: GameState, crewId: string, requested: string[] | undefined, phase: Phase = s.phase): boolean {
   if (!requested?.includes(crewId) || !canUseAbility(s, crewId, phase)) return false;
   s.usedAbilities.push(`${crewId}:${phase}`);
   const crew = catalog.crew.find((c) => c.id === crewId)!;
@@ -160,7 +160,7 @@ export function resolveLaunch(state: GameState, choices: TurnChoices = {}): Game
   const s = structuredClone(state);
   const bonus = liveTestBonus(s, 'launch');
   let r = rollTest(rngFor(s.seed, 'launch', 'roll'), bonus, LAUNCH_DIFFICULTY);
-  if (!r.success && useAbility(s, 'crew-flight', choices.abilities)) {
+  if (!r.success && spendAbility(s, 'crew-flight', choices.abilities)) {
     r = rollTest(rngFor(s.seed, 'launch', 'reroll'), bonus, LAUNCH_DIFFICULTY);
   }
 
@@ -224,14 +224,14 @@ export function playTurn(state: GameState, choices: TurnChoices = {}): GameState
   }
 
   // Crew abilities.
-  const scienceDouble = useAbility(s, 'crew-science', choices.abilities);
-  const flush = useAbility(s, 'crew-comms', choices.abilities);
-  if (useAbility(s, 'crew-systems', choices.abilities)) {
+  const scienceDouble = spendAbility(s, 'crew-science', choices.abilities);
+  const flush = spendAbility(s, 'crew-comms', choices.abilities);
+  if (spendAbility(s, 'crew-systems', choices.abilities)) {
     for (const c of s.ship.components) c.offUntilTurn = undefined;
   }
   const flags = {
-    reroll: () => useAbility(s, 'crew-flight', choices.abilities),
-    ignoreRadiation: () => useAbility(s, 'crew-radiation', choices.abilities),
+    reroll: () => spendAbility(s, 'crew-flight', choices.abilities),
+    ignoreRadiation: () => spendAbility(s, 'crew-radiation', choices.abilities),
   };
 
   // Event.
@@ -298,7 +298,7 @@ export function playTurn(state: GameState, choices: TurnChoices = {}): GameState
   }
   if (commsOn) remaining -= commsDraw;
 
-  let instruments =
+  const instruments =
     phase === 'operations' && !safeMode && !instrumentsOff ? live.filter((c) => c.card.category === 'instrument') : [];
   instruments.sort((a, b) => drawOf(b.card) - drawOf(a.card));
   const shed: string[] = [];
@@ -451,7 +451,7 @@ export function resolveArrival(state: GameState, choices: TurnChoices = {}): Gam
 
   const bonus = liveTestBonus(s, 'propulsion') + s.arrivalBonus;
   let r = rollTest(rngFor(s.seed, 'arrival', s.arrivalAttempts, 'roll'), bonus, ARRIVAL_DIFFICULTY);
-  if (!r.success && useAbility(s, 'crew-flight', choices.abilities)) {
+  if (!r.success && spendAbility(s, 'crew-flight', choices.abilities)) {
     r = rollTest(rngFor(s.seed, 'arrival', s.arrivalAttempts, 'reroll'), bonus, ARRIVAL_DIFFICULTY);
   }
   if (r.success) {
