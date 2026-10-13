@@ -1,22 +1,29 @@
 # PROJECT-STATE
 
 ## Fase atual
-Mudança de direção (13/10/2026): o jogo passa a ser no estilo Kerbal Space Program, feito só com HTML, CSS e JS puro, com YAGNI obrigatório, órbitas visíveis e física didática. Os três prompts foram reescritos. Próximo: P0 da nova arquitetura.
+P1 completo: o jogo roda do briefing ao relatório em HTML, CSS e JS puro. Próximo: P2.
 
 ## Concluído
-- Prompts novos: `Contexto.md`, `Arquitetura.md`, `Desenvolvimento_guiado.md`.
-- Versão anterior (Next.js/TypeScript, RPG de cartas) está no main até o P0 novo removê-la. Referência: commit `bdf802e`.
+- P0: dados (`js/data`), física (`js/physics`), regras (`js/game`) e 25 testes `node --test`.
+- P1: briefing com mapa de Δv, hangar com estágios, mapa orbital em canvas (órbitas, trajetória atual e prevista, periélio/afélio, ângulo de fase, fantasma de Marte, vistas Terra/Marte), time warp com parada na janela e no encontro, queima de partida e correções com prévia ao vivo, captura, 6 turnos de operações, relatório com lições e Painel de Física por fase.
+- Versão Next.js removida (referência no histórico: commit `bdf802e`).
+
+## Verificado no navegador
+Missão de referência: janela em 16/11/2026, partida de 3.610 m/s, encontro em 31/07/2027, captura de 893 m/s, 108 de ciência, missão cumprida com 2 estrelas. Roteiro de falha: TWR 1,05 não decola; partida fora da janela erra Marte por ~50 milhões de km e a nave se perde. Sem erros no console; sem rolagem horizontal a 390 px.
 
 ## Próximo passo
-P0 do `Desenvolvimento_guiado.md`: remover a versão Next.js, criar dados e física em JS puro com testes `node --test`.
+P2 do `Desenvolvimento_guiado.md`: eventos em cartas no cruzeiro, equipe, JPL Horizons com fallback, caixas "Na vida real", conjunção solar.
 
 ## Decisões
-- Data inicial do jogo: 13/10/2026; a janela Terra→Marte do modelo cai em ~15/11/2026.
+- Data inicial do jogo: 13/10/2026; a janela Terra→Marte do modelo cai em ~16/11/2026.
 - Subida até LEO custa 9.400 m/s fixos; partida 3.613 m/s; captura elíptica 907 m/s.
 - Zona de encontro = 2 × SOI de Marte (jogabilidade).
+- Antena de alto ganho: 80 Gbit/turno a 1 UA (60 não chegava a 100 de ciência com Marte se afastando até 2,5 UA).
+- Lançamento sem animação: o diário de bordo mostra a separação dos estágios (YAGNI).
 
 ## Pendências
 - `Contexto.md`: título oficial, critérios de avaliação e link do desafio.
+- Deploy no GitHub Pages.
 
 ## Fora do MVP
 Backend, banco, login, multiplayer, IA, 3D, n-corpos, pouso pilotado.
