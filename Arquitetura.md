@@ -71,7 +71,7 @@ js/ui/report.js            relatório
 tests/orbit.test.js
 tests/rocket.test.js
 tests/mission.test.js
-package.json               {"type":"module","scripts":{"test":"node --test tests/"}}
+package.json               {"type":"module","scripts":{"test":"node --test"}}
 ```
 
 ## 7. CONSTANTES E DADOS REAIS (`js/data/constants.js`, `js/data/planets.js`)
@@ -124,7 +124,7 @@ Regras: cada estágio tem ≥ 1 tanque e motores de **um único tipo**; estágio
 | rtg | RTG | energia | 120 | 45 | +110 constante | |
 | battery | Bateria | energia | 10 | 25 | cobre 300 W de déficit | máx. 2 |
 | antenna-low | Antena de baixo ganho | comunicação | 10 | 5 | −20 | 8 Gbit/turno a 1 UA da Terra |
-| antenna-high | Antena de alto ganho | comunicação | 60 | 40 | −100 | 60 Gbit/turno a 1 UA |
+| antenna-high | Antena de alto ganho | comunicação | 60 | 40 | −100 | 80 Gbit/turno a 1 UA |
 | laser | Comunicação a laser | comunicação | 140 | 25 | −150 | 160 Gbit/turno a 1 UA; −1 em todos os testes |
 | camera | Câmera de alta resolução | instrumento | 60 | 40 | −80 | ciência 4, dados 4 Gbit |
 | spectrometer | Espectrômetro | instrumento | 70 | 30 | −60 | ciência 5, dados 3 |

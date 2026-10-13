@@ -20,7 +20,7 @@ Mantenha os `.md` do projeto. As regras de operação (energia, buffer de dados,
 
 Crie `package.json`:
 ```json
-{ "name": "mission-architect", "private": true, "type": "module", "scripts": { "test": "node --test tests/" } }
+{ "name": "mission-architect", "private": true, "type": "module", "scripts": { "test": "node --test" } }
 ```
 Rodar localmente: `python3 -m http.server 8000` e abrir `http://localhost:8000`.
 
