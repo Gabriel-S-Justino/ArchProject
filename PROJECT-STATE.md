@@ -1,29 +1,22 @@
 # PROJECT-STATE
 
 ## Fase atual
-P1 concluído. Próximo: P2.
+Mudança de direção (13/10/2026): o jogo passa a ser no estilo Kerbal Space Program, feito só com HTML, CSS e JS puro, com YAGNI obrigatório, órbitas visíveis e física didática. Os três prompts foram reescritos. Próximo: P0 da nova arquitetura.
 
 ## Concluído
-- P0: tipos (`types/game.ts`), cartas em `data/`, engine em `game/` (design, validação, testes d20, turnos, chegada, score, lições, simulação determinística), 47 testes em `tests/`.
-- P1: fluxo jogável em `app/page.tsx` (briefing → projeto → cruzeiro → chegada → operações → relatório) com `hooks/useGame.ts`.
+- Prompts novos: `Contexto.md`, `Arquitetura.md`, `Desenvolvimento_guiado.md`.
+- Versão anterior (Next.js/TypeScript, RPG de cartas) está no main até o P0 novo removê-la. Referência: commit `bdf802e`.
 
 ## Próximo passo
-P2: painel "E se?" lado a lado no relatório; missões Olho na Terra e Sentinela Lunar; Horizons + fallback; cartas "Sabia que?".
-Hoje o relatório já tem "Ajustar a nave e repetir os mesmos eventos" (mesma seed), que é a base do "E se?".
+P0 do `Desenvolvimento_guiado.md`: remover a versão Next.js, criar dados e física em JS puro com testes `node --test`.
 
 ## Decisões
-- A seed é sorteada no clique de "Lançar missão" (seed 0 = ainda não sorteada), para o prerender do Next ficar estático e o reducer puro.
-- Instrumentos só consomem energia na fase de operações; `cruiseOnlyPower` só no cruzeiro.
-- O evento de cada turno depende só de seed, fase e turno, nunca do projeto da nave.
-
-## Balanceamento (200 seeds, sem ações)
-- Nave de referência: 164 sucessos, 21 parciais, 15 falhas (falhas vêm de duas inserções orbitais erradas).
-- Antena de baixo ganho: 185 parciais.
-- Painel pequeno: ciência média cai de ~115 para ~71.
+- Data inicial do jogo: 13/10/2026; a janela Terra→Marte do modelo cai em ~15/11/2026.
+- Subida até LEO custa 9.400 m/s fixos; partida 3.613 m/s; captura elíptica 907 m/s.
+- Zona de encontro = 2 × SOI de Marte (jogabilidade).
 
 ## Pendências
 - `Contexto.md`: título oficial, critérios de avaliação e link do desafio.
-- Habilidade do Controlador de Voo no lançamento existe no engine, mas a tela ainda não oferece.
 
 ## Fora do MVP
-Banco, login, multiplayer, IA.
+Backend, banco, login, multiplayer, IA, 3D, n-corpos, pouso pilotado.
