@@ -186,7 +186,7 @@ Cada carta tem `flavor` de 1 frase educativa (ex.: RTG: "Curiosity usa um gerado
 - `massaSeca = 300 + Σ massa` (×0,9 nos componentes se crew-systems); `propelente = Σ propellant`; `massaTotal = massaSeca + propelente` ≤ `lançador.capacity[launcherKey]`.
 - `Δv = ispMotor · 9,80665 · ln(massaTotal / massaSeca)`; usa o isp do único motor (máx. 1 carta engine-*).
 - `geração(d) = Σ (solar ? power / d² : power)` para power > 0, com d = mission.distanceAU.
-- `consumo = 150 + Σ |power|` dos componentes com power < 0 (+ cruiseOnlyPower no cruzeiro).
+- `consumo = 150 + Σ |power|` dos componentes com power < 0. Instrumentos só consomem na operação; cruiseOnlyPower só no cruzeiro.
 - `downlink(d) = Σ downlinkAt1AU / d²` (×1,2 se crew-comms).
 - `bônus(teste) = Σ testBonus[teste] + Σ testBonus.all + lançador.reliability (só launch)`.
 
@@ -271,7 +271,7 @@ Prioridade: cálculos de design, validação, energia por distância, Δv, downl
 - **Nave de referência** (Médio, chemical, solar-large, battery, antenna-high, camera, spectrometer, radar, magnetometer, shield-radiation, shield-micrometeoroid, computer-redundant, crew science/comms/flight): válida, custo ≤ 800, Δv ≥ 2.000, e com `autoPolicy` atinge **success** em ≥ 60% de 200 seeds.
 - Trocar antenna-high por antenna-low na nave de referência: **partial** na maioria das seeds.
 - Trocar solar-large por solar-small: aviso de energia e ciência menor.
-- Adicionar todas as cartas: validação falha por orçamento e massa/Δv.
+- Adicionar todas as cartas: validação falha por orçamento. Adicionar instrumento e controle térmico à nave de referência (sem tanque extra): falha por Δv.
 Se algum cenário falhar, ajustar números em `data/` e registrar a mudança na seção 7.
 
 ## 18. YAGNI GATE

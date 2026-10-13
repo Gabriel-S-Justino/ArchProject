@@ -1,0 +1,6 @@
+[
+  { "id": "trajectory-correction", "name": "Correção de trajetória", "copies": 3, "text": "Gasta 100 m/s agora e dá +2 no teste de inserção orbital." },
+  { "id": "safe-mode", "name": "Modo seguro", "copies": 2, "text": "Cancela o evento deste turno. Sem ciência e sem downlink neste turno." },
+  { "id": "prioritize-downlink", "name": "Priorizar downlink", "copies": 2, "text": "Downlink ×1,5 neste turno, mas os instrumentos ficam desligados." },
+  { "id": "power-down-instruments", "name": "Desligar instrumentos", "copies": 2, "text": "Desliga todos os instrumentos neste turno para economizar energia." }
+]

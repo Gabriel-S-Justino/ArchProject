@@ -1,0 +1,8 @@
+[
+  { "id": "crew-systems", "name": "Engenheira de Sistemas", "passive": "−10% na massa dos componentes.", "active": "Religa um componente desligado sem custo." },
+  { "id": "crew-science", "name": "Cientista-chefe", "passive": "+1 de ciência por turno para cada instrumento ativo.", "active": "Dobra a ciência gerada neste turno." },
+  { "id": "crew-flight", "name": "Controlador de Voo", "passive": "+2 nos testes de lançamento e propulsão.", "active": "Rerola o teste do evento deste turno." },
+  { "id": "crew-program", "name": "Gerente de Programa", "passive": "+10% de orçamento.", "active": null },
+  { "id": "crew-comms", "name": "Especialista em Comunicação", "passive": "+20% de downlink.", "active": "Descarrega todo o buffer de dados neste turno." },
+  { "id": "crew-radiation", "name": "Especialista em Radiação", "passive": "+3 nos testes de radiação.", "active": "Ignora a falha de um evento de radiação." }
+]
