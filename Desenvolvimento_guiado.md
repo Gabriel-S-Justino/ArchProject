@@ -13,7 +13,7 @@ Antes de implementar, leia: `Contexto.md → Arquitetura.md`.
 ## 3. PRIMEIRO PASSO
 O repositório tem uma versão anterior em Next.js/TypeScript. Ela **sai**:
 ```bash
-git rm -r app components hooks game types tests data public eslint.config.mjs next.config.ts next-env.d.ts tsconfig.json vitest.config.ts package-lock.json AGENTS.md
+git rm -r --ignore-unmatch app components hooks game types tests data public eslint.config.mjs next.config.ts next-env.d.ts tsconfig.json vitest.config.ts package-lock.json AGENTS.md
 rm -rf node_modules .next tsconfig.tsbuildinfo
 ```
 Mantenha os `.md` do projeto. As regras de operação (energia, buffer de dados, entrega de ciência, score) da versão anterior podem ser consultadas no histórico do git (`git show bdf802e:game/turn.ts`) e portadas para JS quando chegar a hora; não porte nada que esta arquitetura não peça.
