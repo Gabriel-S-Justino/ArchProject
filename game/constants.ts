@@ -1,0 +1,17 @@
+export const G0 = 9.80665;
+export const BUS_MASS = 300;
+export const BUS_COST = 100;
+export const BUS_POWER = 150;
+export const BUFFER_MAX = 40;
+export const LAUNCH_DIFFICULTY = 8;
+export const LAUNCH_LOSS_MARGIN = 5;
+export const LAUNCH_DELTAV_PENALTY = 150;
+export const ARRIVAL_DIFFICULTY = 10;
+export const ARRIVAL_DELTAV_PENALTY = 200;
+export const MAX_ARRIVAL_ATTEMPTS = 2;
+export const HAND_START = 3;
+export const HAND_MAX = 5;
+export const TRAJECTORY_CORRECTION_COST = 100;
+export const TRAJECTORY_CORRECTION_BONUS = 2;
+export const DISCOVERY_SCIENCE = 8;
+export const CREW_SIZE = 3;

@@ -1,0 +1,18 @@
+[
+  {
+    "id": "red-watch",
+    "name": "Vigia Vermelho",
+    "briefing": "Coloque um orbitador em Marte para mapear a superfície e sondar o subsolo em busca de gelo. O orçamento é apertado e Marte fica a 1,52 UA do Sol: os painéis rendem menos e o sinal chega mais fraco à Terra.",
+    "distanceAU": 1.52,
+    "budget": 800,
+    "launcherKey": "mars",
+    "requiredDeltaV": 2000,
+    "insertionDeltaV": 1500,
+    "cruiseTurns": 4,
+    "operationsTurns": 6,
+    "scienceTarget": 100,
+    "requires": { "minInstruments": 1, "categories": ["power", "comms", "propulsion", "avionics"] },
+    "difficultyMultiplier": 1.5,
+    "gameBalance": true
+  }
+]

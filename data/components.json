@@ -1,0 +1,272 @@
+[
+  {
+    "id": "solar-small",
+    "name": "Painel solar pequeno",
+    "category": "power",
+    "cost": 20,
+    "mass": 30,
+    "power": 600,
+    "solar": true,
+    "maxCopies": 2,
+    "tags": [
+      "solar"
+    ],
+    "flavor": "A potência de um painel cai com o quadrado da distância ao Sol.",
+    "gameBalance": true
+  },
+  {
+    "id": "solar-large",
+    "name": "Painel solar grande",
+    "category": "power",
+    "cost": 50,
+    "mass": 90,
+    "power": 2000,
+    "solar": true,
+    "tags": [
+      "solar"
+    ],
+    "flavor": "A Juno usa painéis enormes para funcionar até em Júpiter, onde o Sol é 25 vezes mais fraco.",
+    "gameBalance": true
+  },
+  {
+    "id": "rtg",
+    "name": "Gerador de radioisótopo (RTG)",
+    "category": "power",
+    "cost": 120,
+    "mass": 45,
+    "power": 110,
+    "tags": [
+      "nuclear"
+    ],
+    "flavor": "O rover Curiosity usa um RTG porque ele não depende do Sol.",
+    "gameBalance": true
+  },
+  {
+    "id": "battery",
+    "name": "Bateria",
+    "category": "power",
+    "cost": 10,
+    "mass": 25,
+    "power": 0,
+    "batteryW": 300,
+    "maxCopies": 2,
+    "tags": [
+      "storage"
+    ],
+    "flavor": "Baterias cobrem picos de consumo e eclipses.",
+    "gameBalance": true
+  },
+  {
+    "id": "antenna-low",
+    "name": "Antena de baixo ganho",
+    "category": "comms",
+    "cost": 10,
+    "mass": 5,
+    "power": -20,
+    "downlinkAt1AU": 4,
+    "tags": [],
+    "flavor": "Leve e simples, mas manda poucos dados de longe.",
+    "gameBalance": true
+  },
+  {
+    "id": "antenna-high",
+    "name": "Antena de alto ganho",
+    "category": "comms",
+    "cost": 60,
+    "mass": 40,
+    "power": -100,
+    "downlinkAt1AU": 30,
+    "tags": [],
+    "flavor": "Antenas parabólicas concentram o sinal num feixe estreito apontado para a Terra.",
+    "gameBalance": true
+  },
+  {
+    "id": "laser-optical",
+    "name": "Comunicação a laser",
+    "category": "comms",
+    "cost": 140,
+    "mass": 25,
+    "power": -150,
+    "downlinkAt1AU": 80,
+    "testBonus": {
+      "all": -1
+    },
+    "tags": [],
+    "flavor": "Lasers enviam muito mais dados, mas a tecnologia ainda é nova e menos testada.",
+    "gameBalance": true
+  },
+  {
+    "id": "engine-chemical",
+    "name": "Motor químico",
+    "category": "propulsion",
+    "cost": 40,
+    "mass": 100,
+    "power": 0,
+    "propellant": 700,
+    "isp": 320,
+    "tags": [],
+    "flavor": "Empuxo alto: faz a inserção orbital em minutos.",
+    "gameBalance": true
+  },
+  {
+    "id": "engine-ion",
+    "name": "Propulsão iônica",
+    "category": "propulsion",
+    "cost": 110,
+    "mass": 60,
+    "power": 0,
+    "propellant": 150,
+    "isp": 3000,
+    "cruiseOnlyPower": -500,
+    "extraCruiseTurns": 2,
+    "tags": [],
+    "flavor": "Íons são muito eficientes, mas o empuxo é minúsculo: a viagem demora mais e consome muita energia.",
+    "gameBalance": true
+  },
+  {
+    "id": "tank-extra",
+    "name": "Tanque extra",
+    "category": "propulsion",
+    "cost": 30,
+    "mass": 40,
+    "power": 0,
+    "propellant": 300,
+    "maxCopies": 2,
+    "tags": [],
+    "flavor": "Mais propelente dá mais delta-v, mas cada quilo também precisa ser acelerado.",
+    "gameBalance": true
+  },
+  {
+    "id": "shield-radiation",
+    "name": "Blindagem de radiação",
+    "category": "protection",
+    "cost": 30,
+    "mass": 30,
+    "power": 0,
+    "testBonus": {
+      "radiation": 4
+    },
+    "tags": [],
+    "flavor": "Eletrônicos sofrem com partículas energéticas do Sol e dos raios cósmicos.",
+    "gameBalance": true
+  },
+  {
+    "id": "shield-micrometeoroid",
+    "name": "Escudo de micrometeoroides",
+    "category": "protection",
+    "cost": 20,
+    "mass": 25,
+    "power": 0,
+    "testBonus": {
+      "micrometeoroid": 4
+    },
+    "tags": [],
+    "flavor": "Escudos Whipple usam camadas finas para pulverizar partículas antes do impacto.",
+    "gameBalance": true
+  },
+  {
+    "id": "thermal-control",
+    "name": "Controle térmico",
+    "category": "protection",
+    "cost": 25,
+    "mass": 20,
+    "power": -20,
+    "testBonus": {
+      "thermal": 3
+    },
+    "tags": [],
+    "flavor": "Radiadores e aquecedores mantêm tudo entre o frio do espaço e o calor do Sol.",
+    "gameBalance": true
+  },
+  {
+    "id": "computer-basic",
+    "name": "Computador de bordo",
+    "category": "avionics",
+    "cost": 20,
+    "mass": 10,
+    "power": -30,
+    "tags": [],
+    "flavor": "O cérebro da nave: sem ele, nada funciona.",
+    "gameBalance": true
+  },
+  {
+    "id": "computer-redundant",
+    "name": "Computador redundante",
+    "category": "avionics",
+    "cost": 45,
+    "mass": 20,
+    "power": -40,
+    "testBonus": {
+      "avionics": 3,
+      "all": 1
+    },
+    "tags": [],
+    "flavor": "Dois computadores: se um falha, o outro assume.",
+    "gameBalance": true
+  },
+  {
+    "id": "camera-hires",
+    "name": "Câmera de alta resolução",
+    "category": "instrument",
+    "cost": 60,
+    "mass": 40,
+    "power": -80,
+    "science": 4,
+    "data": 4,
+    "tags": [],
+    "flavor": "Imagens detalhadas geram muitos dados para enviar à Terra.",
+    "gameBalance": true
+  },
+  {
+    "id": "spectrometer",
+    "name": "Espectrômetro",
+    "category": "instrument",
+    "cost": 70,
+    "mass": 30,
+    "power": -60,
+    "science": 5,
+    "data": 3,
+    "tags": [],
+    "flavor": "Decompõe a luz para descobrir do que a superfície é feita.",
+    "gameBalance": true
+  },
+  {
+    "id": "radar-sounder",
+    "name": "Radar de sondagem",
+    "category": "instrument",
+    "cost": 90,
+    "mass": 50,
+    "power": -200,
+    "science": 7,
+    "data": 5,
+    "tags": [],
+    "flavor": "Ondas de radar atravessam o solo e revelam gelo enterrado.",
+    "gameBalance": true
+  },
+  {
+    "id": "magnetometer",
+    "name": "Magnetômetro",
+    "category": "instrument",
+    "cost": 20,
+    "mass": 5,
+    "power": -10,
+    "science": 2,
+    "data": 0.5,
+    "tags": [],
+    "flavor": "Mede campos magnéticos com pouquíssima energia.",
+    "gameBalance": true
+  },
+  {
+    "id": "ir-thermometer",
+    "name": "Termômetro infravermelho",
+    "category": "instrument",
+    "cost": 40,
+    "mass": 15,
+    "power": -30,
+    "science": 3,
+    "data": 1,
+    "tags": [],
+    "flavor": "Mede a temperatura da superfície pela radiação térmica.",
+    "gameBalance": true
+  }
+]
