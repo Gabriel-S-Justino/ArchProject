@@ -1,29 +1,29 @@
 # PROJECT-STATE
 
 ## Fase atual
-P1 concluído. Próximo: P2.
+P1 completo: o jogo roda do briefing ao relatório em HTML, CSS e JS puro. Próximo: P2.
 
 ## Concluído
-- P0: tipos (`types/game.ts`), cartas em `data/`, engine em `game/` (design, validação, testes d20, turnos, chegada, score, lições, simulação determinística), 47 testes em `tests/`.
-- P1: fluxo jogável em `app/page.tsx` (briefing → projeto → cruzeiro → chegada → operações → relatório) com `hooks/useGame.ts`.
+- P0: dados (`js/data`), física (`js/physics`), regras (`js/game`) e 25 testes `node --test`.
+- P1: briefing com mapa de Δv, hangar com estágios, mapa orbital em canvas (órbitas, trajetória atual e prevista, periélio/afélio, ângulo de fase, fantasma de Marte, vistas Terra/Marte), time warp com parada na janela e no encontro, queima de partida e correções com prévia ao vivo, captura, 6 turnos de operações, relatório com lições e Painel de Física por fase.
+- Versão Next.js removida (referência no histórico: commit `bdf802e`).
+
+## Verificado no navegador
+Missão de referência: janela em 16/11/2026, partida de 3.610 m/s, encontro em 31/07/2027, captura de 893 m/s, 108 de ciência, missão cumprida com 2 estrelas. Roteiro de falha: TWR 1,05 não decola; partida fora da janela erra Marte por ~50 milhões de km e a nave se perde. Sem erros no console; sem rolagem horizontal a 390 px.
 
 ## Próximo passo
-P2: painel "E se?" lado a lado no relatório; missões Olho na Terra e Sentinela Lunar; Horizons + fallback; cartas "Sabia que?".
-Hoje o relatório já tem "Ajustar a nave e repetir os mesmos eventos" (mesma seed), que é a base do "E se?".
+P2 do `Desenvolvimento_guiado.md`: eventos em cartas no cruzeiro, equipe, JPL Horizons com fallback, caixas "Na vida real", conjunção solar.
 
 ## Decisões
-- A seed é sorteada no clique de "Lançar missão" (seed 0 = ainda não sorteada), para o prerender do Next ficar estático e o reducer puro.
-- Instrumentos só consomem energia na fase de operações; `cruiseOnlyPower` só no cruzeiro.
-- O evento de cada turno depende só de seed, fase e turno, nunca do projeto da nave.
-
-## Balanceamento (200 seeds, sem ações)
-- Nave de referência: 164 sucessos, 21 parciais, 15 falhas (falhas vêm de duas inserções orbitais erradas).
-- Antena de baixo ganho: 185 parciais.
-- Painel pequeno: ciência média cai de ~115 para ~71.
+- Data inicial do jogo: 13/10/2026; a janela Terra→Marte do modelo cai em ~16/11/2026.
+- Subida até LEO custa 9.400 m/s fixos; partida 3.613 m/s; captura elíptica 907 m/s.
+- Zona de encontro = 2 × SOI de Marte (jogabilidade).
+- Antena de alto ganho: 80 Gbit/turno a 1 UA (60 não chegava a 100 de ciência com Marte se afastando até 2,5 UA).
+- Lançamento sem animação: o diário de bordo mostra a separação dos estágios (YAGNI).
 
 ## Pendências
 - `Contexto.md`: título oficial, critérios de avaliação e link do desafio.
-- Habilidade do Controlador de Voo no lançamento existe no engine, mas a tela ainda não oferece.
+- Deploy no GitHub Pages.
 
 ## Fora do MVP
-Banco, login, multiplayer, IA.
+Backend, banco, login, multiplayer, IA, 3D, n-corpos, pouso pilotado.

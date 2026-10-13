@@ -1,286 +1,261 @@
-# ARQUITETURA — MISSION ARCHITECT (RPG DE CARTAS)
+# ARQUITETURA — MISSION ARCHITECT (ESTILO KERBAL SPACE PROGRAM)
 
 ## 1. FLUXO
-Entrada: `Contexto.md`. Saída: arquitetura e regras do jogo. Depois: `Desenvolvimento_guiado.md`.
-Este arquivo é a **especificação das regras**. Se o código divergir dele, corrija o código ou atualize este arquivo com justificativa.
+Entrada: `Contexto.md`. Saída: arquitetura e regras. Depois: `Desenvolvimento_guiado.md`.
+Este arquivo é a **especificação**. Se o código divergir dele, corrija o código ou atualize este arquivo com justificativa.
 
 ## 2. REQUISITOS DERIVADOS
 **Funcionais:**
-- F1. Escolher missão (MVP: só Vigia Vermelho) e 3 personagens de equipe.
-- F2. Montar a nave com cartas: 1 lançador + componentes; barras de recursos atualizam ao vivo.
-- F3. Validar a nave antes do lançamento, com mensagens que explicam cada violação.
-- F4. Simular fases: lançamento → cruzeiro → chegada → operações, turno a turno.
-- F5. A cada turno de voo: comprar evento, resolver teste d20, permitir jogar ações e habilidades.
-- F6. Relatório final: resultado, estrelas, score, gráfico por turno e explicações causais.
-- F7 (P2). Modo "E se?": trocar uma carta e re-simular com a mesma seed.
-**Técnicos:** roda 100% no navegador; engine puro TypeScript sem dependência de React; determinístico por seed.
-**Dados NASA:** opcionais (P2), sempre com fallback local.
-**Critérios que afetam arquitetura:** demo estável → engine determinístico e sem rede no MVP.
-**Restrições:** ~48 h; sem backend obrigatório.
+- F1. Briefing da missão Vigia Vermelho com o mapa de Δv da viagem.
+- F2. Hangar: montar foguete em até 3 estágios + sonda com peças em forma de carta; Δv, TWR, massa e custo de cada estágio ao vivo.
+- F3. Lançamento até a órbita baixa (LEO), consumindo 9.400 m/s dos estágios na ordem.
+- F4. Mapa orbital em `<canvas>`: Sol, órbitas e posições de Mercúrio, Vênus, Terra e Marte, a nave e sua trajetória; data atual; aceleração do tempo.
+- F5. Planejador de partida: ângulo de fase atual vs. ideal, contagem até a janela, queima prograde com trajetória prevista redesenhada ao mover o controle.
+- F6. Cruzeiro com aproximação máxima de Marte prevista e correções de meio de curso.
+- F7. Encontro com Marte (entrada na zona de encontro) e queima de captura.
+- F8. Operações científicas com energia (1/d² do Sol) e comunicação (1/d² da Terra, atraso d/c).
+- F9. Relatório com resultado, score, linha do tempo e lições explicando a física.
+- F10. Painel de Física sempre visível, mostrando os conceitos da fase atual com fórmula e números atuais.
+**Técnicos:** somente HTML, CSS e JS puro; módulos ES nativos; física pura sem acesso ao DOM; nenhuma dependência.
+**Critérios que afetam arquitetura:** demo estável → sem rede no MVP; animação fluida → propagação analítica (Kepler), não integração numérica.
 
-## 3. STACK
-Next.js (App Router), React, TypeScript (strict), Tailwind CSS, Vitest. Ícones em SVG inline.
-Sem bibliotecas de estado (usar `useReducer`). Framer Motion só em P3, se justificado.
+## 3. STACK (OBRIGATÓRIA)
+- **HTML5** (`index.html` único), **CSS3** (`css/style.css`, variáveis CSS, flex/grid), **JavaScript** ES2020+ com `<script type="module">`.
+- Desenho do mapa: **Canvas 2D**. Ícones e diagramas pequenos: **SVG inline**.
+- Testes: `node --test` (nativo do Node 18+). `package.json` existe só com `"type": "module"` e o script `test`; **sem `dependencies` nem `devDependencies`**.
+- Servir localmente com qualquer servidor estático (ex.: `python3 -m http.server`), porque módulos ES não carregam via `file://`.
+- Deploy: GitHub Pages (arquivos estáticos).
 
-## 4. ARQUITETURA
+**Proibido:** frameworks, TypeScript, bibliotecas, CSS frameworks, bundlers, transpiladores, CDNs de terceiros.
+
+## 4. YAGNI — COMO APLICAR AQUI
+- Um arquivo por responsabilidade real; não crie pastas, classes base, "managers", eventos customizados ou injeção de dependência sem necessidade presente.
+- Prefira funções puras e objetos literais. Classes só se simplificarem o código de verdade.
+- Estado do jogo: **um** objeto `state` em `js/main.js`, alterado só pelas funções de `js/game/`.
+- Nenhuma opção de configuração que o MVP não use. Nenhum código comentado "para depois".
+- Toda feature nova passa pelo portão da seção 17.
+
+## 5. CAMADAS
 ```text
-UI (app/, components/)
+index.html + css/style.css
  ↓
-Application (hooks/useGame.ts: useReducer + máquina de fases)
+js/ui/*        (desenha e lê cliques; não calcula física)
  ↓
-Game Engine puro (game/)
+js/game/*      (regras da missão, fases, score, lições)
  ↓
-Data (data/*.json) + Providers (services/, P2)
+js/physics/*   (funções puras: órbitas, Kepler, foguete)
+ ↓
+js/data/*      (constantes, planetas, peças, missão, conceitos)
 ```
-`game/` não importa nada de React, Next ou `services/`.
+`js/physics` e `js/game` **não** tocam no DOM e podem ser testados no Node.
 
-## 5. DOMÍNIO (types/game.ts)
-```ts
-type Category = 'power' | 'comms' | 'propulsion' | 'protection' | 'avionics' | 'instrument';
-type TestKind = 'launch' | 'radiation' | 'micrometeoroid' | 'avionics' | 'power' | 'thermal' | 'propulsion';
-type Phase = 'briefing' | 'design' | 'launch' | 'cruise' | 'arrival' | 'operations' | 'report';
-
-interface Mission {
-  id: string; name: string; briefing: string;
-  distanceAU: number;          // distância média ao Sol
-  budget: number;              // US$ M
-  launcherKey: 'leo' | 'moon' | 'mars';
-  requiredDeltaV: number;      // m/s exigidos na validação
-  insertionDeltaV: number;     // m/s gastos na chegada
-  cruiseTurns: number; operationsTurns: number;
-  scienceTarget: number;
-  requires: { minInstruments: number; categories: Category[] };
-  difficultyMultiplier: number;
-}
-
-interface Launcher { id: string; name: string; cost: number; capacity: Record<'leo'|'moon'|'mars', number>; reliability: number; flavor: string; }
-
-interface ComponentCard {
-  id: string; name: string; category: Category;
-  cost: number; mass: number;
-  power: number;                 // W; >0 gera, <0 consome
-  solar?: boolean;               // se true, power é a 1 UA e escala com 1/d²
-  batteryW?: number;             // cobre déficit até X W por turno
-  propellant?: number; isp?: number; extraCruiseTurns?: number; cruiseOnlyPower?: number;
-  downlinkAt1AU?: number;        // Gbit/turno a 1 UA
-  science?: number; data?: number; // por turno de operação
-  testBonus?: Partial<Record<TestKind | 'all', number>>;
-  tags: string[]; flavor: string;
-}
-
-interface CrewCard { id: string; name: string; passive: string; active: string; }
-interface EventCard { id: string; name: string; phases: ('cruise'|'operations')[]; test?: TestKind; difficulty?: number; copies: number; text: string; }
-interface ActionCard { id: string; name: string; copies: number; text: string; }
-
-interface Design { launcherId?: string; componentIds: string[]; crewIds: string[]; }
-
-interface ShipState {
-  components: { id: string; active: boolean; damaged: boolean; offUntilTurn?: number }[];
-  deltaV: number; buffer: { data: number; science: number };
-  scienceDelivered: number; safeModeStreak: number; alive: boolean;
-  modifiers: { id: string; untilTurn: number; effect: string }[];
-}
-
-interface MissionEvent { turn: number; phase: Phase; title: string; roll?: number; total?: number; difficulty?: number; success?: boolean; explanation: string; }
-
-interface TurnSnapshot { turn: number; phase: Phase; generation: number; consumption: number; downlink: number; scienceDelivered: number; deltaV: number; }
-
-interface MissionResult {
-  outcome: 'success' | 'partial' | 'failure';
-  stars: 0 | 1 | 2 | 3; score: number;
-  scienceDelivered: number; budgetLeft: number;
-  timeline: TurnSnapshot[]; log: MissionEvent[];
-  lessons: string[];               // explicações causais em português
-}
+## 6. ESTRUTURA DE ARQUIVOS
+```text
+index.html
+css/style.css
+js/main.js                 estado, loop de animação, troca de telas
+js/data/constants.js       G0, AU, C, MU (Sol, Terra, Marte), raios, SOI, data inicial
+js/data/planets.js         elementos orbitais (fonte NASA/JPL citada)
+js/data/parts.js           catálogo de peças (balanceamento de jogo)
+js/data/mission.js         missão Vigia Vermelho
+js/data/concepts.js        conceitos de física do painel didático
+js/physics/orbit.js        posição dos planetas, elementos ↔ estado, Kepler, trajetória
+js/physics/rocket.js       Δv por estágio, TWR, consumo de propelente
+js/game/mission.js         fases, lançamento, queimas, encontro, captura, operações
+js/game/scoring.js         resultado, score, estrelas
+js/game/lessons.js         lições em português
+js/ui/hangar.js            tela de montagem
+js/ui/map.js               canvas do mapa orbital
+js/ui/panels.js            HUD, controles de manobra, painel de física
+js/ui/report.js            relatório
+tests/orbit.test.js
+tests/rocket.test.js
+tests/mission.test.js
+package.json               {"type":"module","scripts":{"test":"node --test"}}
 ```
 
-## 6. MISSÕES
-Um engine, missões como dados (`data/missions.json`).
+## 7. CONSTANTES E DADOS REAIS (`js/data/constants.js`, `js/data/planets.js`)
+Unidades internas: **SI** (m, s, kg). Exibição: km, UA, dias, toneladas.
 
-**MVP — Vigia Vermelho** (orbitador de Marte):
+| Constante | Valor |
+|---|---|
+| g₀ | 9,80665 m/s² |
+| UA | 1,495978707 × 10¹¹ m |
+| c | 299.792.458 m/s |
+| GM Sol | 1,32712440018 × 10²⁰ m³/s² |
+| GM Terra | 3,986004418 × 10¹⁴ m³/s² |
+| GM Marte | 4,282837 × 10¹³ m³/s² |
+| Raio Terra / Marte | 6.371 km / 3.389,5 km |
+| SOI Terra / Marte | 924.000 km / 577.000 km |
+| LEO | 200 km de altitude |
+| Órbita de captura em Marte | periapse 300 km × apoapse 33.000 km |
+| Data inicial do jogo | 13/10/2026 |
+
+Planetas (órbitas circulares, longitude média `L(t) = L₀ + L̇·T`, T em séculos desde J2000 = 01/01/2000 12:00 TT; fonte: JPL "Approximate Positions of the Planets", raio = semieixo maior):
+| Planeta | a (UA) | L₀ (°) | L̇ (°/século) | Período (dias) |
+|---|---|---|---|---|
+| Mercúrio | 0,38710 | 252,25032 | 149472,67411 | 87,97 |
+| Vênus | 0,72333 | 181,97910 | 58517,81539 | 224,70 |
+| Terra | 1,00000 | 100,46457 | 35999,37245 | 365,26 |
+| Marte | 1,52371 | 355,44657 | 19140,30268 | 686,98 |
+
+Com esses dados, na data inicial o ângulo de fase Terra→Marte é ~60° e a janela ideal (~44°) chega em ~33 dias (meados de novembro de 2026), coerente com a janela real de 2026. Mostrar isso ao jogador.
+
+## 8. PEÇAS (`js/data/parts.js`) — balanceamento de jogo
+**Foguete**
+| id | Nome | Tipo | Custo (US$ M) | Massa cheia (t) | Massa vazia (t) | Isp (s) | Empuxo (kN) |
+|---|---|---|---|---|---|---|---|
+| tank-s | Tanque pequeno | tanque | 8 | 6 | 0,5 | | |
+| tank-m | Tanque médio | tanque | 20 | 24 | 2 | | |
+| tank-l | Tanque grande | tanque | 50 | 96 | 8 | | |
+| engine-vac | Motor de vácuo | motor | 40 | 0,5 | 0,5 | 450 | 60 |
+| engine-upper | Motor de 2º estágio | motor | 60 | 2 | 2 | 350 | 1.000 |
+| engine-main | Motor principal | motor | 45 | 6 | 6 | 300 | 2.000 |
+| decoupler | Desacoplador | estrutura | 2 | 0,1 | 0,1 | | |
+
+Regras: cada estágio tem ≥ 1 tanque e motores de **um único tipo**; estágios 1 e 2 têm desacoplador acima deles; o estágio mais alto (motor de vácuo recomendado) fica preso à sonda até a captura. Máximo 3 estágios, 4 tanques e 3 motores por estágio.
+
+**Sonda** (massas em kg na tela, em t no cálculo)
+| id | Nome | Cat. | Custo | Massa (kg) | Energia (W) | Outros |
+|---|---|---|---|---|---|---|
+| probe-core | Núcleo da sonda | obrigatório | 40 | 500 | −150 | computador + estrutura |
+| solar-small | Painel solar pequeno | energia | 20 | 30 | +600 a 1 UA | máx. 2 |
+| solar-large | Painel solar grande | energia | 50 | 90 | +2.000 a 1 UA | |
+| rtg | RTG | energia | 120 | 45 | +110 constante | |
+| battery | Bateria | energia | 10 | 25 | cobre 300 W de déficit | máx. 2 |
+| antenna-low | Antena de baixo ganho | comunicação | 10 | 5 | −20 | 8 Gbit/turno a 1 UA da Terra |
+| antenna-high | Antena de alto ganho | comunicação | 60 | 40 | −100 | 80 Gbit/turno a 1 UA |
+| laser | Comunicação a laser | comunicação | 140 | 25 | −150 | 160 Gbit/turno a 1 UA; −1 em todos os testes |
+| camera | Câmera de alta resolução | instrumento | 60 | 40 | −80 | ciência 4, dados 4 Gbit |
+| spectrometer | Espectrômetro | instrumento | 70 | 30 | −60 | ciência 5, dados 3 |
+| radar | Radar de sondagem | instrumento | 90 | 50 | −200 | ciência 7, dados 5 |
+| magnetometer | Magnetômetro | instrumento | 20 | 5 | −10 | ciência 2, dados 0,5 |
+| shield-radiation | Blindagem de radiação | proteção | 30 | 30 | 0 | +4 em radiação (P2) |
+| shield-mm | Escudo de micrometeoroides | proteção | 20 | 25 | 0 | +4 em micrometeoroides (P2) |
+
+Cada carta tem uma frase `flavor` educativa (ex.: RTG: "O Curiosity usa um RTG porque não depende do Sol.").
+
+## 9. MISSÃO (`js/data/mission.js`)
 | Campo | Valor |
 |---|---|
-| distanceAU | 1,52 |
-| budget | 800 |
-| launcherKey | mars |
-| requiredDeltaV | 2.000 |
-| insertionDeltaV | 1.500 |
-| cruiseTurns / operationsTurns | 4 / 6 |
-| scienceTarget | 100 |
-| requires | ≥ 1 instrumento; categorias power, comms, propulsion, avionics |
-| difficultyMultiplier | 1,5 |
+| id / nome | red-watch / Vigia Vermelho |
+| orçamento | 1.000 (US$ M) |
+| Δv até LEO | 9.400 m/s (fixo, inclui perdas) |
+| TWR mínimo na decolagem | 1,2 |
+| operações | 6 turnos de 30 dias |
+| meta de ciência | 100 |
+| zona de encontro | 2 × SOI de Marte (simplificação de jogabilidade, declarada) |
+| multiplicador de dificuldade | 1,5 |
 
-P2: Olho na Terra (1 UA, budget 300, leo, Δv 300/0, 1/6 turnos, alvo 60, mult 1,0); Sentinela Lunar (1 UA, budget 500, moon, Δv 1.200/800, 2/6, alvo 80, mult 1,2).
+**Mapa de Δv** (mostrar no briefing; valores calculados com as constantes da seção 7):
+Superfície → LEO **9.400** · LEO → transferência para Marte **3.613** · captura elíptica em Marte **907** (órbita circular baixa custaria **2.091**) · **total ≈ 13.920 m/s**.
 
-## 7. CARTAS DO MVP (data/*.json)
-Todos os números são **balanceamento de jogo** (marcar `"gameBalance": true` nos JSON).
+**Foguete de referência** (usado nos testes de balanceamento):
+- Sonda: probe-core, solar-large, battery, antenna-high, camera, spectrometer, radar, magnetometer, shield-radiation, shield-mm (835 kg).
+- Estágio 3: 2× tank-s + engine-vac → ≈ 7.689 m/s, TWR 0,46.
+- Estágio 2: 3× tank-m + engine-upper + decoupler → ≈ 4.825 m/s.
+- Estágio 1: 3× tank-l + 3× engine-main + decoupler → ≈ 3.269 m/s, TWR 1,55.
+- Total ≈ 15.784 m/s (margem ≈ 1.860 m/s), custo 915.
+- Com só 2 motores principais o TWR cai para 1,05: não decola (lição de TWR).
 
-**Estrutura base da nave (sempre incluída, não é carta):** massa 300 kg, custo 100, consumo 150 W.
+## 10. FÍSICA (`js/physics/`) — funções puras
+**orbit.js**
+```js
+planetAngle(planet, tSeconds)          // L(t) em rad, a partir de J2000
+planetState(planet, t)                 // { r:[x,y], v:[vx,vy] } órbita circular, v = √(GM/r)
+circularSpeed(mu, r)                   // √(mu/r)
+visViva(mu, r, a)                      // √(mu·(2/r − 1/a))
+period(mu, a)                          // 2π·√(a³/mu)
+stateToElements(r, v, mu, t)           // { a, e, omega, M0, t0, n } (2D)
+positionAt(el, t)                      // resolve Kepler M = E − e·sinE (Newton, 10 iterações)
+velocityAt(el, t)
+trajectoryPoints(el, n)                // pontos da elipse para desenhar
+closestApproach(el, planet, t0, t1)    // amostragem: { t, dist }
+phaseAngle(t)                          // ângulo Marte − Terra, em graus [0, 360)
+idealPhaseAngle()                      // 180 − 360·(t_Hohmann / T_Marte) ≈ 44,3°
+hohmann(mu, r1, r2)                    // { dv1, dv2, tTransfer }
+escapeBurn(muP, rPark, vInf)           // √(v∞² + 2mu/r) − √(mu/r)
+captureBurn(muP, rp, ra, vInf)         // √(v∞² + 2mu/rp) − visViva(mu, rp, (rp+ra)/2)
+```
+**rocket.js**
+```js
+stageStats(stages, payloadT)           // por estágio: m0, mf, Δv, TWR (de baixo para cima)
+totalDeltaV(stages, payloadT)
+burn(rocketState, dv)                  // consome propelente estágio a estágio: mf = m0 / e^(Δv/(Isp·g0)); desacopla estágio vazio; retorna { state, done, missing }
+```
+**Partida da Terra:** no instante da queima, v∞ = √((v_LEO + Δv)² − 2·GM_T/r_LEO) se positivo; senão a nave continua presa à Terra (mostrar "ainda não escapou"). A velocidade heliocêntrica é `v_Terra + v∞` na direção do movimento da Terra (prograde). Posição inicial = posição da Terra.
+**Correção de meio de curso:** Δv prograde e radial aplicados à velocidade heliocêntrica atual; recalcula elementos.
+**Encontro:** a cada passo do tempo, se `|r_nave − r_Marte| < zona de encontro`, para o time warp, calcula `v∞ = |v_nave − v_Marte|` e o Δv de captura. Sem Δv suficiente → sobrevoo (falha).
+**Operações:** energia = painéis × (1/1,52²) + RTG; taxa de dados = base / d_TM², com d_TM = distância Terra–Marte em UA naquele turno; atraso = d_TM / c. Regras de déficit de energia, buffer (40 Gbit), entrega proporcional de ciência e desligamento de instrumentos são as mesmas do engine anterior (ver histórico do git, `game/turn.ts`).
 
-**Lançadores**
-| id | Nome | Custo | LEO / Lua / Marte (kg) | reliability |
-|---|---|---|---|---|
-| launcher-light | Lançador Leve | 60 | 1.200 / 400 / 250 | 0 |
-| launcher-medium | Lançador Médio | 150 | 20.000 / 5.000 / 4.000 | +2 |
-| launcher-heavy | Lançador Pesado | 300 | 60.000 / 15.000 / 13.000 | +1 |
+## 11. ESTADO E FASES (`js/game/mission.js`)
+```js
+state = {
+  phase: 'briefing' | 'hangar' | 'leo' | 'cruise' | 'encounter' | 'mars-orbit' | 'operations' | 'report',
+  t,                 // segundos desde J2000
+  warp,              // dias por segundo real: 0, 1, 10, 50
+  design: { stages: [[partId...], ...], probe: [partId...], crew: [] },
+  rocket,            // propelente restante por estágio
+  ship: { elements, frame: 'earth' | 'sun' | 'mars' },
+  ops: { turn, buffer, scienceDelivered, ... },
+  log: [], timeline: [], result
+}
+```
+Funções: `validateDesign`, `launch`, `planDeparture(dv)` (só prevê), `executeBurn(dv, radial)`, `advance(state, dtSeconds)`, `capture()`, `runOperationsTurn()`, `finish()`. Todas retornam um novo `state` ou alteram só o objeto recebido, sem DOM.
 
-**Componentes**
-| id | Cat. | Custo | Massa | Energia (W) | Outros |
-|---|---|---|---|---|---|
-| solar-small | power | 20 | 30 | +600 solar | |
-| solar-large | power | 50 | 90 | +2.000 solar | |
-| rtg | power | 120 | 45 | +110 | constante |
-| battery | power | 10 | 25 | 0 | batteryW 300 |
-| antenna-low | comms | 10 | 5 | −20 | downlink 4 |
-| antenna-high | comms | 60 | 40 | −100 | downlink 30 |
-| laser-optical | comms | 140 | 25 | −150 | downlink 80; testBonus all −1 |
-| engine-chemical | propulsion | 40 | 100 | 0 | propellant 700, isp 320 |
-| engine-ion | propulsion | 110 | 60 | 0 | propellant 150, isp 3.000, cruiseOnlyPower −500, extraCruiseTurns 2 |
-| tank-extra | propulsion | 30 | 40 | 0 | propellant 300 (soma ao motor) |
-| shield-radiation | protection | 30 | 30 | 0 | radiation +4 |
-| shield-micrometeoroid | protection | 20 | 25 | 0 | micrometeoroid +4 |
-| thermal-control | protection | 25 | 20 | −20 | thermal +3 |
-| computer-basic | avionics | 20 | 10 | −30 | |
-| computer-redundant | avionics | 45 | 20 | −40 | avionics +3, all +1 |
-| camera-hires | instrument | 60 | 40 | −80 | science 4, data 4 |
-| spectrometer | instrument | 70 | 30 | −60 | science 5, data 3 |
-| radar-sounder | instrument | 90 | 50 | −200 | science 7, data 5 |
-| magnetometer | instrument | 20 | 5 | −10 | science 2, data 0,5 |
-| ir-thermometer | instrument | 40 | 15 | −30 | science 3, data 1 |
+## 12. TELAS (`js/ui/`)
+- **Briefing:** carta da missão, mapa de Δv em barras SVG, botão "Ir ao hangar".
+- **Hangar:** coluna de peças (cartas por categoria), pilha do foguete desenhada em SVG (estágio 3 no topo), tabela por estágio (massa, Δv, TWR), Δv total vs. mapa de Δv, custo vs. orçamento, checklist de lançamento.
+- **Mapa orbital (canvas):** fundo escuro; Sol no centro; órbitas como círculos finos; planetas com tamanho exagerado e rótulo "fora de escala"; nave como triângulo; trajetória atual sólida, trajetória planejada tracejada; marcadores **Periélio/Afélio**; "fantasma" de Marte na hora da aproximação máxima; linha do ângulo de fase Terra–Sol–Marte com o valor em graus. Zoom para "Vista Terra" (LEO em escala) e "Vista Marte" (órbita de captura em escala).
+- **Controles:** data, botões de time warp (⏸ 1× 10× 50× dias/s), parada automática na janela, no encontro e no fim do cruzeiro; controle deslizante de Δv prograde (0–4.500 m/s) e radial (−300 a +300 m/s), Δv restante da nave.
+- **Painel de Física:** cartões de conceito da fase atual (seção 13).
+- **Relatório:** resultado, estrelas, score, tabela por turno, lições.
 
-Cada carta pode aparecer no máximo 1 vez, exceto `solar-small`, `battery` e `tank-extra` (até 2).
-Cada carta tem `flavor` de 1 frase educativa (ex.: RTG: "Curiosity usa um gerador de radioisótopo porque não depende do Sol.").
-
-**Equipe (escolher 3)**
-| id | Nome | Passiva | Ativa (1x por fase) |
-|---|---|---|---|
-| crew-systems | Engenheira de Sistemas | −10% massa de componentes | Desliga/religa qualquer componente sem custo de turno |
-| crew-science | Cientista-chefe | +1 ciência/turno por instrumento ativo | Dobra a ciência gerada no turno |
-| crew-flight | Controlador de Voo | +2 em testes launch e propulsion | Rerola um teste |
-| crew-program | Gerente de Programa | +10% orçamento | — (só passiva) |
-| crew-comms | Especialista em Comunicação | +20% downlink | Descarrega todo o buffer neste turno |
-| crew-radiation | Especialista em Radiação | +3 em radiation | Ignora a falha de um evento de radiação |
-
-**Eventos** (deck único, embaralhado por seed; carta comprada volta ao fundo)
-| id | Fases | Teste | Dif. | Falha |
-|---|---|---|---|---|
-| solar-storm | cruise, operations | radiation | 12 | geração −50% por 2 turnos |
-| micrometeoroid | cruise, operations | micrometeoroid | 11 | componente aleatório (não-estrutura) danificado: power 0, science 0, downlink 0 |
-| computer-glitch | cruise, operations | avionics | 10 | modo seguro neste turno |
-| panel-degradation | cruise, operations | power | 9 | maior painel solar −50% permanente; +4 no teste se houver ≥ 2 cartas power |
-| overheating | operations | thermal | 10 | instrumento aleatório desligado por 1 turno |
-| unexpected-discovery | operations | — | — | se sobra de energia ≥ 50 W e downlink não usado ≥ 2 Gbit: +8 ciência entregue |
-| quiet-sky | cruise, operations | — | — | nada acontece (3 cópias) |
-
-**Ações** (mão de 3, compra 1 por turno de voo, máx. 5 na mão)
-| id | Efeito |
+## 13. PAINEL DE FÍSICA (`js/data/concepts.js` + `js/ui/panels.js`)
+Cada conceito é um objeto:
+```js
+{ id: 'vis-viva', title: 'Equação vis-viva', formula: 'v² = GM·(2/r − 1/a)',
+  plain: 'Quanto mais perto do Sol, mais rápido você anda na mesma órbita.',
+  analogy: 'Como um skate numa rampa: desce ganhando velocidade, sobe perdendo.',
+  phases: ['cruise'], live: (state) => 'r = 1,21 UA, a = 1,26 UA → v = 27,3 km/s' }
+```
+Conceitos por fase:
+| Fase | Conceitos |
 |---|---|
-| trajectory-correction | +2 em teste propulsion na chegada; gasta 100 m/s |
-| safe-mode | cancela o evento do turno; turno sem ciência nem downlink |
-| prioritize-downlink | downlink ×1,5 neste turno; instrumentos desligados |
-| power-down-instruments | escolha instrumentos para desligar até o próximo turno |
+| Briefing | Gravitação, Mapa de Δv |
+| Hangar | Equação do foguete, TWR, Estágios |
+| LEO | Velocidade orbital circular, 3ª Lei de Kepler |
+| Planejamento | Transferência de Hohmann, Ângulo de fase e janela, Velocidade de escape |
+| Cruzeiro | Vis-viva, Periélio e afélio, Correção de meio de curso |
+| Encontro/captura | Esfera de influência, Excesso hiperbólico, Queima de captura |
+| Operações | Inverso do quadrado (energia e dados), Atraso do sinal |
 
-## 8. REGRAS (game/)
-**Cálculos de projeto (`calculateDesign`)**
-- `custoTotal = 100 + lançador.cost + Σ componentes.cost`; orçamento efetivo = budget × (1,1 se crew-program).
-- `massaSeca = 300 + Σ massa` (×0,9 nos componentes se crew-systems); `propelente = Σ propellant`; `massaTotal = massaSeca + propelente` ≤ `lançador.capacity[launcherKey]`.
-- `Δv = ispMotor · 9,80665 · ln(massaTotal / massaSeca)`; usa o isp do único motor (máx. 1 carta engine-*).
-- `geração(d) = Σ (solar ? power / d² : power)` para power > 0, com d = mission.distanceAU.
-- `consumo = 150 + Σ |power|` dos componentes com power < 0. Instrumentos só consomem na operação; cruiseOnlyPower só no cruzeiro.
-- `downlink(d) = Σ downlinkAt1AU / d²` (×1,2 se crew-comms).
-- `bônus(teste) = Σ testBonus[teste] + Σ testBonus.all + lançador.reliability (só launch)`.
+Texto em português simples (nível ensino médio), uma ideia por cartão, sempre com os números atuais. Uma seção fixa "Como o jogo simplifica" lista as simplificações do Contexto.md.
 
-**Validação (`validateDesign`)** — retorna lista de `{ code, message }` em português:
-- orçamento estourado; massa acima da capacidade; Δv < requiredDeltaV; falta categoria obrigatória; instrumentos < minInstruments; mais de 1 motor; mais cópias que o permitido; sem lançador; equipe ≠ 3.
-- Aviso (não bloqueia): consumo em operação > geração + bateria.
-
-**Teste (`rollTest`)**: `d20 + bônus ≥ dificuldade`. 1 natural sempre falha, 20 natural sempre passa.
-
-**Lançamento**: teste launch dif 8. Falha por ≥ 5 → missão perdida. Outra falha → −150 m/s.
-
-**Turno de voo (cruzeiro ou operações)**, em ordem:
-1. Comprar evento da fase e resolver.
-2. Jogador joga até 1 ação e/ou habilidades.
-3. Energia: déficit = consumo − geração. Se > 0, bateria cobre até batteryW. Se ainda faltar, desligar instrumentos (maior consumo primeiro), depois comunicação. Se nem a estrutura+aviônica for alimentada → modo seguro. 2 modos seguros seguidos → missão perdida.
-4. Operações: instrumentos ativos somam `science` e `data` ao buffer.
-5. Downlink: `envio = min(buffer.data, downlink)`; `ciênciaEntregue += buffer.science × envio / buffer.data`; buffer reduzido na mesma proporção. Buffer máximo 40 Gbit (excedente é perdido e gera lição).
-6. Registrar `TurnSnapshot`.
-
-**Chegada**: se Δv restante < insertionDeltaV → falha ("faltou propelente"). Senão teste propulsion dif 10; falha → −200 m/s e repetir no turno seguinte uma vez; segunda falha → falha. Sucesso gasta insertionDeltaV.
-
-**Resultado e score (`calculateScore`)**
-- success: viva e ciênciaEntregue ≥ scienceTarget; partial: ciênciaEntregue > 0; failure: caso contrário.
-- `score = round(ciência × (1 + sobraOrçamento/orçamento × 0,5) × difficultyMultiplier − 5 × turnosModoSeguro − 10 × componentesDanificados)`, mínimo 0.
+## 14. RESULTADO E SCORE (`js/game/scoring.js`)
+- success: capturado e ciência ≥ meta; partial: ciência > 0 ou capturado; failure: não decolou, não escapou, sobrevoo ou nave perdida.
+- `score = round(ciência × (1 + sobraOrçamento/orçamento × 0,5) × 1,5 + Δv_sobrando/100 − 5 × turnosEmModoSeguro)`, mínimo 0.
 - Estrelas: 0 failure, 1 partial, 2 success, 3 success com sobra de orçamento ≥ 20%.
 
-**Lições (`buildLessons`)**: regras que geram frases, ex.: dados perdidos por buffer cheio → "Seus instrumentos geraram mais dados do que a antena conseguia enviar"; painel solar longe do Sol → "Em Marte o painel rende 43% do que renderia na Terra"; evento de radiação falho sem blindagem.
+## 15. LIÇÕES (`js/game/lessons.js`)
+Frases geradas pelo que aconteceu, sempre ligando à física. Exemplos: TWR < 1,2 ("o empuxo não vence o peso"); partida longe da janela ("Marte não estava lá quando você chegou: o ângulo de fase era X°, o ideal é 44°"); faltou Δv na captura ("chegou rápido demais: v∞ = X km/s"); dados presos ("a Terra estava a X UA e o sinal enfraquece com o quadrado da distância"); painel solar a 1,52 UA rende 43%.
 
-## 9. DETERMINISMO
-- RNG `mulberry32` em `game/rng.ts`.
-- Cada sorteio usa uma semente derivada: `hash(seed, phase, turn, 'event' | 'roll' | 'draw')`. Assim, trocar uma carta **não** muda quais eventos saem em cada turno, o que torna o "E se?" justo.
-- `simulateMission(mission, design, seed, policy = autoPolicy)` roda a missão inteira sem interação (usado em testes e no "E se?"). `autoPolicy` não joga ações.
-- O modo interativo usa as mesmas funções de passo (`startMission`, `resolveLaunch`, `playTurn`, `resolveArrival`, `finishMission`).
+## 16. TESTES (`node --test`)
+- orbit: `circularSpeed` em LEO ≈ 7.788 m/s; período da Terra ≈ 365,25 dias; `hohmann` Terra→Marte: tempo ≈ 259 dias; `escapeBurn` da LEO ≈ 3.613 m/s; `captureBurn` elíptica ≈ 907 m/s; ângulo de fase ideal ≈ 44,3°; `stateToElements`/`positionAt` ida e volta (erro < 1 km); Kepler converge para e = 0,9.
+- rocket: Δv por estágio do foguete de referência (seção 9) com tolerância de 1 m/s; TWR; `burn` atravessa estágios e falha quando falta propelente.
+- mission: validação (orçamento, TWR, estágio sem motor, motores misturados); partida na janela ideal com o Δv de Hohmann encontra Marte; partida 60 dias fora da janela não encontra; captura sem Δv vira sobrevoo; operações determinísticas.
+- Balanceamento: o foguete de referência completa a missão com a partida na janela ideal.
 
-## 10. NASA/JPL (P2)
-```text
-app/api/distance/route.ts → services/horizons.ts → dados normalizados { body, date, sunAU, earthAU } → engine
-```
-Fallback: `data/distances.json` (Terra/Lua 1,0; Marte 1,52; Júpiter 5,2). O engine recebe só `distanceAU`; não conhece o formato da API. Timeout de 3 s e cache em memória.
+## 17. YAGNI GATE
+Antes de adicionar qualquer coisa: é requisito do MVP? o jogo quebra sem isso? existe solução menor? pode esperar? aumenta risco? Sem justificativa: **não implementar**.
 
-## 11. FRONTEND
-Componentes: `MissionBriefing`, `CrewPicker`, `CardView`, `CardHand`, `ShipBoard` (slots por categoria), `ResourceBars`, `ValidationPanel`, `FlightView`, `EventModal` (mostra dado, bônus e dificuldade), `Timeline`, `MissionReport`, `WhatIfPanel` (P2).
-Regras ficam no engine; componentes só exibem e despacham ações.
-Cartas: retângulo 2:3, cor por categoria, ícone SVG, custo/massa/energia no rodapé, flavor em itálico.
-
-## 12. ESTADO
-`hooks/useGame.ts` com `useReducer`:
-```ts
-type GameAction =
-  | { type: 'SELECT_MISSION'; missionId: string }
-  | { type: 'TOGGLE_CREW'; crewId: string }
-  | { type: 'SELECT_LAUNCHER'; launcherId: string }
-  | { type: 'ADD_COMPONENT' | 'REMOVE_COMPONENT'; componentId: string }
-  | { type: 'LAUNCH' } | { type: 'PLAY_ACTION'; actionId: string; target?: string }
-  | { type: 'USE_ABILITY'; crewId: string; target?: string }
-  | { type: 'END_TURN' } | { type: 'RESTART' };
-```
-`LAUNCH` só é aceito se `validateDesign` retornar sem erros.
-
-## 13. PERSISTÊNCIA
-**Necessária:** não no MVP. **Motivo:** partida curta. P3: campanha em `localStorage`.
-
-## 14. ESTRUTURA
-```text
-app/            page.tsx (fluxo inteiro em uma rota), layout.tsx, api/ (P2)
-components/
-hooks/          useGame.ts
-game/           rng.ts, design.ts, validation.ts, tests.ts, events.ts, turn.ts, simulation.ts, scoring.ts, lessons.ts
-data/           missions.json, launchers.json, components.json, crew.json, events.json, actions.json, distances.json
-services/       horizons.ts (P2)
-types/          game.ts
-tests/          *.test.ts
-```
-
-## 15. SEGURANÇA
-Sem secrets no MVP. Validar parâmetros da rota de API (P2). Não usar `dangerouslySetInnerHTML`. Respostas externas validadas antes de usar.
-
-## 16. TESTABILIDADE
-Prioridade: cálculos de design, validação, energia por distância, Δv, downlink/buffer, eventos, chegada, score, determinismo (mesma seed ⇒ mesmo resultado), e os cenários de balanceamento da seção 17.
-
-## 17. BALANCEAMENTO (testes obrigatórios)
-- **Nave de referência** (Médio, chemical, solar-large, battery, antenna-high, camera, spectrometer, radar, magnetometer, shield-radiation, shield-micrometeoroid, computer-redundant, crew science/comms/flight): válida, custo ≤ 800, Δv ≥ 2.000, e com `autoPolicy` atinge **success** em ≥ 60% de 200 seeds.
-- Trocar antenna-high por antenna-low na nave de referência: **partial** na maioria das seeds.
-- Trocar solar-large por solar-small: aviso de energia e ciência menor.
-- Adicionar todas as cartas: validação falha por orçamento. Adicionar instrumento e controle térmico à nave de referência (sem tanque extra): falha por Δv.
-Se algum cenário falhar, ajustar números em `data/` e registrar a mudança na seção 7.
-
-## 18. YAGNI GATE
-Antes de adicionar: é requisito? é MVP? há solução menor? pode esperar? aumenta risco? Sem justificativa: não implementar.
+## 18. SEGURANÇA E PERFORMANCE
+Sem `innerHTML` com dados externos (usar `textContent`). Sem segredos. Loop com `requestAnimationFrame`; recalcular a trajetória prevista só quando o controle de Δv muda; desenhar a elipse com ~200 pontos.
 
 ## 19. PLANO
-**P0:** tipos + dados + engine + testes de balanceamento
-**P1:** UI + fluxo completo jogável
-**P2:** "E se?", mais 2 missões, Horizons + fallback, "Sabia que?"
-**P3:** arte, animações, campanha, acessibilidade
+**P0:** dados + física + testes
+**P1:** hangar + mapa + manobras + captura + operações + relatório + painel de física
+**P2:** eventos em cartas no cruzeiro, equipe (3 de 6), JPL Horizons com fallback, "Na vida real"
+**P3:** Lua e Vênus, carreira em `localStorage`, sons, polimento
 
 **Próximo: `Desenvolvimento_guiado.md`.**

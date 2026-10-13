@@ -1,9 +1,0 @@
-[
-  { "id": "solar-storm", "name": "Tempestade solar", "phases": ["cruise", "operations"], "test": "radiation", "difficulty": 12, "copies": 1, "text": "Uma ejeção de massa coronal atinge a nave.", "failText": "A radiação degrada os painéis: geração −50% por 2 turnos." },
-  { "id": "micrometeoroid", "name": "Micrometeoroide", "phases": ["cruise", "operations"], "test": "micrometeoroid", "difficulty": 11, "copies": 1, "text": "Uma partícula minúscula a dezenas de km/s cruza o caminho da nave.", "failText": "Um componente foi atingido e parou de funcionar." },
-  { "id": "computer-glitch", "name": "Anomalia no computador", "phases": ["cruise", "operations"], "test": "avionics", "difficulty": 10, "copies": 1, "text": "Uma partícula energética inverte um bit na memória de bordo.", "failText": "O computador reinicia e a nave entra em modo seguro neste turno." },
-  { "id": "panel-degradation", "name": "Degradação de painel", "phases": ["cruise", "operations"], "test": "power", "difficulty": 9, "copies": 1, "text": "Uma junta do painel solar começa a falhar.", "failText": "O maior painel solar perde metade da potência para sempre." },
-  { "id": "overheating", "name": "Superaquecimento", "phases": ["operations"], "test": "thermal", "difficulty": 10, "copies": 1, "text": "O Sol bate de frente em um instrumento.", "failText": "Um instrumento desliga por 1 turno para esfriar." },
-  { "id": "unexpected-discovery", "name": "Descoberta inesperada", "phases": ["operations"], "copies": 1, "text": "Os cientistas notam algo estranho nos dados. Com energia e banda sobrando, dá para investigar." },
-  { "id": "quiet-sky", "name": "Céu calmo", "phases": ["cruise", "operations"], "copies": 3, "text": "Nada fora do normal. A equipe respira aliviada." }
-]

@@ -1,5 +1,0 @@
-[
-  { "id": "launcher-light", "name": "Lançador Leve", "cost": 60, "capacity": { "leo": 1200, "moon": 400, "mars": 250 }, "reliability": 0, "flavor": "Foguetes pequenos são baratos, mas quase não levam carga para fora da órbita da Terra.", "gameBalance": true },
-  { "id": "launcher-medium", "name": "Lançador Médio", "cost": 150, "capacity": { "leo": 20000, "moon": 5000, "mars": 4000 }, "reliability": 2, "flavor": "O cavalo de batalha: muitos voos, alta confiabilidade, capacidade suficiente para Marte.", "gameBalance": true },
-  { "id": "launcher-heavy", "name": "Lançador Pesado", "cost": 300, "capacity": { "leo": 60000, "moon": 15000, "mars": 13000 }, "reliability": 1, "flavor": "Leva muito mais massa, mas custa o dobro e voou menos vezes.", "gameBalance": true }
-]
