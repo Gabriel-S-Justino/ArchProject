@@ -32,41 +32,441 @@ function probeLines(p) {
   return lines;
 }
 
+
+/**
+ * Desenha o foguete montado em SVG.
+ *
+ * Compatibilidade:
+ * - Recebe o mesmo objeto design.
+ * - Continua retornando um elemento SVG.
+ * - Não modifica o estado nem as regras da simulação.
+ * - Usa as peças já definidas em data/parts.js.
+ */
+
+function svgNode(tag, attributes = {}, parent = null) {
+  const node = document.createElementNS(SVG, tag);
+
+  for (const [key, value] of Object.entries(attributes)) {
+    node.setAttribute(key, String(value));
+  }
+
+  if (parent) parent.append(node);
+  return node;
+}
+
+function rocketTankSize(part) {
+  const sizes = {
+    'tank-s': { width: 34, height: 35 },
+    'tank-m': { width: 48, height: 48 },
+    'tank-l': { width: 64, height: 62 },
+  };
+
+  // Fallback para tanques adicionados futuramente.
+  return sizes[part.id] ?? { width: 46, height: 46 };
+}
+
+function rocketTankShape(cx, y, width, height, parent) {
+  const left = cx - width / 2;
+  const right = cx + width / 2;
+  const bevel = Math.min(5, height / 5);
+  const shoulder = Math.min(5, width / 8);
+
+  // Corpo com extremidades suavemente chanfradas.
+  svgNode('path', {
+    d: [
+      `M ${left + shoulder} ${y}`,
+      `L ${right - shoulder} ${y}`,
+      `L ${right} ${y + bevel}`,
+      `L ${right} ${y + height - bevel}`,
+      `L ${right - shoulder} ${y + height}`,
+      `L ${left + shoulder} ${y + height}`,
+      `L ${left} ${y + height - bevel}`,
+      `L ${left} ${y + bevel}`,
+      'Z',
+    ].join(' '),
+    fill: 'url(#rocket-metal)',
+    stroke: '#64748b',
+    'stroke-width': 0.8,
+  }, parent);
+
+  // Faixa de sombra lateral.
+  svgNode('path', {
+    d: `M ${right - 7} ${y + bevel} L ${right - 3} ${y + bevel} L ${right - 3} ${y + height - bevel} L ${right - 7} ${y + height - bevel} Z`,
+    fill: '#64748b',
+    opacity: 0.48,
+  }, parent);
+
+  // Painel central.
+  svgNode('path', {
+    d: `M ${left + 5} ${y + bevel + 2} L ${right - 10} ${y + bevel + 2} L ${right - 10} ${y + height - bevel - 2} L ${left + 5} ${y + height - bevel - 2} Z`,
+    fill: '#e2e8f0',
+    opacity: 0.55,
+  }, parent);
+
+  // Anéis estruturais do tanque.
+  for (const ringY of [y + 4, y + height - 4]) {
+    svgNode('line', {
+      x1: left + 2,
+      y1: ringY,
+      x2: right - 2,
+      y2: ringY,
+      stroke: '#64748b',
+      'stroke-width': 1,
+    }, parent);
+  }
+}
+
+function rocketEngine(cx, y, width, parent) {
+  const topWidth = width * 0.48;
+  const exitWidth = width * 0.82;
+  const height = Math.max(12, width * 0.48);
+
+  // Bocal convergente/divergente.
+  svgNode('path', {
+    d: [
+      `M ${cx - topWidth / 2} ${y}`,
+      `L ${cx + topWidth / 2} ${y}`,
+      `L ${cx + exitWidth / 2} ${y + height}`,
+      `L ${cx - exitWidth / 2} ${y + height}`,
+      'Z',
+    ].join(' '),
+    fill: 'url(#rocket-engine)',
+    stroke: '#475569',
+    'stroke-width': 1,
+    'stroke-linejoin': 'round',
+  }, parent);
+
+  // Garganta e borda da saída.
+  svgNode('line', {
+    x1: cx - topWidth / 2,
+    y1: y + 2,
+    x2: cx + topWidth / 2,
+    y2: y + 2,
+    stroke: '#f8fafc',
+    'stroke-width': 1,
+    opacity: 0.8,
+  }, parent);
+
+  svgNode('path', {
+    d: `M ${cx - exitWidth / 2} ${y + height} Q ${cx} ${y + height + 3} ${cx + exitWidth / 2} ${y + height}`,
+    fill: 'none',
+    stroke: '#94a3b8',
+    'stroke-width': 1.5,
+  }, parent);
+}
+
+function rocketAdapter(cx, y, upperWidth, lowerWidth, height, parent) {
+  const upperLeft = cx - upperWidth / 2;
+  const upperRight = cx + upperWidth / 2;
+  const lowerLeft = cx - lowerWidth / 2;
+  const lowerRight = cx + lowerWidth / 2;
+
+  svgNode('path', {
+    d: [
+      `M ${upperLeft} ${y}`,
+      `L ${upperRight} ${y}`,
+      `L ${lowerRight} ${y + height}`,
+      `L ${lowerLeft} ${y + height}`,
+      'Z',
+    ].join(' '),
+    fill: '#94a3b8',
+    stroke: '#475569',
+    'stroke-width': 0.8,
+  }, parent);
+
+  svgNode('line', {
+    x1: lowerLeft + 2,
+    y1: y + height - 3,
+    x2: lowerRight - 2,
+    y2: y + height - 3,
+    stroke: '#e2e8f0',
+    'stroke-width': 1.2,
+  }, parent);
+}
+
+function rocketFairing(cx, y, width, height, parent) {
+  const baseY = y + height;
+  const shoulderY = y + height * 0.42;
+  const left = cx - width / 2;
+  const right = cx + width / 2;
+
+  // Carenagem com ponta cônica e ombros arredondados.
+  svgNode('path', {
+    d: [
+      `M ${cx} ${y}`,
+      `Q ${cx - width * 0.09} ${y + height * 0.18} ${left + 2} ${shoulderY}`,
+      `Q ${left} ${shoulderY + 5} ${left} ${baseY - 4}`,
+      `Q ${left} ${baseY} ${left + 5} ${baseY}`,
+      `L ${right - 5} ${baseY}`,
+      `Q ${right} ${baseY} ${right} ${baseY - 4}`,
+      `Q ${right} ${shoulderY + 5} ${right - 2} ${shoulderY}`,
+      `Q ${cx + width * 0.09} ${y + height * 0.18} ${cx} ${y}`,
+      'Z',
+    ].join(' '),
+    fill: 'url(#rocket-fairing)',
+    stroke: '#64748b',
+    'stroke-width': 1,
+  }, parent);
+
+  // Costura longitudinal.
+  svgNode('path', {
+    d: `M ${cx + 2} ${y + height * 0.18} Q ${cx + 5} ${shoulderY} ${cx + 5} ${baseY - 2}`,
+    fill: 'none',
+    stroke: '#94a3b8',
+    'stroke-width': 1,
+    opacity: 0.9,
+  }, parent);
+
+  // Linha de separação da carenagem.
+  svgNode('line', {
+    x1: left + 2,
+    y1: baseY - 5,
+    x2: right - 2,
+    y2: baseY - 5,
+    stroke: '#475569',
+    'stroke-width': 1,
+  }, parent);
+}
+
+function rocketDetails(cx, y, width, height, parent) {
+  // Pequenos painéis técnicos na lateral do corpo.
+  const panelX = cx + width / 2 - 7;
+
+  svgNode('rect', {
+    x: panelX,
+    y: y + height * 0.35,
+    width: 3,
+    height: Math.min(9, height * 0.2),
+    rx: 0.8,
+    fill: '#f97316',
+  }, parent);
+
+  svgNode('circle', {
+    cx: cx - width / 2 + 5,
+    cy: y + height * 0.35,
+    r: 1.5,
+    fill: '#64748b',
+  }, parent);
+}
+
 function stackSvg(design) {
-  const svg = document.createElementNS(SVG, 'svg');
+  const cx = 90;
   const blocks = [];
-  design.probe.length && blocks.push({ h: 26, w: 40, color: '#facc15', label: 'Sonda' });
+
+  // A largura da sonda acompanha o maior tanque do conjunto.
+  const allRocketParts = design.stages.flat().map(rocketPart);
+  const largestTankWidth = Math.max(
+    34,
+    ...allRocketParts
+      .filter((part) => part.kind === 'tank')
+      .map((part) => rocketTankSize(part).width)
+  );
+
+  // 1. Carga útil e carenagem.
+  if (design.probe.length > 0) {
+    blocks.push({
+      type: 'fairing',
+      width: Math.max(34, largestTankWidth * 0.66),
+      height: 34 + Math.min(12, design.probe.length * 3),
+    });
+  }
+
+  // 2. Estágios do topo até a base.
   for (let i = design.stages.length - 1; i >= 0; i--) {
     const parts = design.stages[i].map(rocketPart);
-    if (!parts.length) continue;
-    for (const p of parts.filter((x) => x.kind === 'tank')) {
-      const size = { 'tank-s': [18, 34], 'tank-m': [30, 50], 'tank-l': [48, 66] }[p.id];
-      blocks.push({ h: size[0], w: size[1], color: '#cbd5e1', label: '' });
+    if (parts.length === 0) continue;
+
+    const tanks = parts.filter((part) => part.kind === 'tank');
+    const engines = parts.filter((part) => part.kind === 'engine');
+
+    // Cada tanque contribui para a altura e para a largura do estágio.
+    for (const tank of tanks) {
+      const size = rocketTankSize(tank);
+
+      blocks.push({
+        type: 'tank',
+        width: size.width,
+        height: size.height,
+      });
     }
-    const engines = parts.filter((x) => x.kind === 'engine').length;
-    if (engines) blocks.push({ h: 16, w: 20 + engines * 14, color: '#f97316', label: `E${i + 1}` });
-    if (i > 0) blocks.push({ h: 4, w: 60, color: '#64748b', label: '' });
+
+    // Estágio sem tanques, mas com motor: estrutura mínima para representá-lo.
+    if (tanks.length === 0 && engines.length > 0) {
+      blocks.push({
+        type: 'tank',
+        width: 38,
+        height: 24,
+      });
+    }
+
+    if (engines.length > 0) {
+      blocks.push({
+        type: 'engine',
+        count: engines.length,
+        width: Math.min(engines.length * 13 + 18, 54),
+        height: Math.max(12, Math.min(engines.length * 2 + 15, 23)),
+      });
+    }
+
+    // Anel de conexão entre este estágio e o seguinte.
+    if (i > 0) {
+      blocks.push({
+        type: 'adapter',
+        width: tanks.length
+          ? Math.max(...tanks.map((tank) => rocketTankSize(tank).width))
+          : 38,
+        lowerWidth: Math.max(34, largestTankWidth * 0.55),
+        height: 6,
+      });
+    }
   }
-  const height = Math.max(120, blocks.reduce((s, b) => s + b.h, 0) + 10);
-  svg.setAttribute('viewBox', `0 0 120 ${height}`);
+
+  // Reserva espaço para um desenho legível mesmo com configuração vazia.
+  const totalHeight = blocks.reduce((sum, block) => sum + block.height, 0);
+  const height = Math.max(120, totalHeight + 16);
+
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('viewBox', `0 0 180 ${height}`);
   svg.setAttribute('class', 'stack');
   svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', 'Desenho do foguete montado');
-  let y = 5;
-  for (const b of blocks) {
-    const rect = document.createElementNS(SVG, 'rect');
-    Object.entries({ x: 60 - b.w / 2, y, width: b.w, height: b.h - 1, rx: 3, fill: b.color }).forEach(([k, v]) => rect.setAttribute(k, v));
-    svg.append(rect);
-    if (b.label) {
-      const text = document.createElementNS(SVG, 'text');
-      Object.entries({ x: 60, y: y + b.h / 2 + 4, 'text-anchor': 'middle', 'font-size': 9, fill: '#0f172a' }).forEach(([k, v]) => text.setAttribute(k, v));
-      text.textContent = b.label;
-      svg.append(text);
+  svg.setAttribute('aria-label', 'Representação técnica do foguete montado');
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+  // Definições de gradientes: mantêm o desenho leve e independente de CSS externo.
+  const defs = svgNode('defs', {}, svg);
+
+  const gradients = [
+    {
+      id: 'rocket-metal',
+      stops: [
+        ['0%', '#94a3b8'],
+        ['30%', '#f8fafc'],
+        ['72%', '#cbd5e1'],
+        ['100%', '#94a3b8'],
+      ],
+    },
+    {
+      id: 'rocket-engine',
+      stops: [
+        ['0%', '#475569'],
+        ['50%', '#cbd5e1'],
+        ['100%', '#334155'],
+      ],
+    },
+    {
+      id: 'rocket-fairing',
+      stops: [
+        ['0%', '#f8fafc'],
+        ['45%', '#e2e8f0'],
+        ['100%', '#94a3b8'],
+      ],
+    },
+  ];
+
+  for (const gradient of gradients) {
+    const linear = svgNode('linearGradient', {
+      id: gradient.id,
+      x1: '0%',
+      y1: '0%',
+      x2: '100%',
+      y2: '0%',
+    }, defs);
+
+    for (const [offset, color] of gradient.stops) {
+      svgNode('stop', {
+        offset,
+        'stop-color': color,
+      }, linear);
     }
-    y += b.h;
   }
+
+  // Sombra discreta para destacar a silhueta.
+  const shadow = svgNode('ellipse', {
+    cx,
+    cy: height - 4,
+    rx: Math.max(18, largestTankWidth * 0.52),
+    ry: 3,
+    fill: '#64748b',
+    opacity: 0.15,
+  }, svg);
+
+  let y = 6;
+
+  for (const block of blocks) {
+    switch (block.type) {
+      case 'fairing': {
+        rocketFairing(cx, y, block.width, block.height, svg);
+        y += block.height;
+
+        // Interface entre a carga útil e o primeiro estágio.
+        rocketAdapter(
+          cx,
+          y,
+          block.width,
+          Math.max(30, largestTankWidth * 0.7),
+          5,
+          svg
+        );
+        y += 5;
+        break;
+      }
+
+      case 'tank': {
+        rocketTankShape(cx, y, block.width, block.height, svg);
+        rocketDetails(cx, y, block.width, block.height, svg);
+        y += block.height;
+        break;
+      }
+
+      case 'adapter': {
+        rocketAdapter(
+          cx,
+          y,
+          block.width,
+          block.lowerWidth,
+          block.height,
+          svg
+        );
+        y += block.height;
+        break;
+      }
+
+      case 'engine': {
+        // Motores distribuídos simetricamente sob o estágio.
+        const count = block.count;
+        const spacing = Math.min(13, block.width / Math.max(1, count));
+        const startX = cx - ((count - 1) * spacing) / 2;
+
+        // Suporte estrutural do conjunto de motores.
+        svgNode('rect', {
+          x: cx - block.width / 2,
+          y,
+          width: block.width,
+          height: 4,
+          rx: 1,
+          fill: '#64748b',
+          stroke: '#475569',
+          'stroke-width': 0.7,
+        }, svg);
+
+        for (let j = 0; j < count; j++) {
+          rocketEngine(
+            startX + j * spacing,
+            y + 3,
+            Math.min(13, block.width / count + 4),
+            svg
+          );
+        }
+
+        y += block.height;
+        break;
+      }
+    }
+  }
+
   return svg;
 }
+
 
 function bar(label, value, max, text, ok) {
   return el('div', { class: 'bar' },
