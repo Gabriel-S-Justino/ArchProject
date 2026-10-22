@@ -39,7 +39,7 @@ your rocket's capacity at that C3       propellant needed for Mars orbit inserti
 
 Picking a cheaper launch date lets you carry more spacecraft. Picking a heavier spacecraft forces a bigger (more expensive) rocket or a better date. This is the challenge's "competing demands" made concrete and visible.
 
-**The design decides everything.** After launch the player makes no decisions: flight, cruise events and operations play out as a simulation of the design. Every outcome traces back to a design choice, and the report says which one. Because of this, the design phases must be rich and the simulation must show its consequences clearly.
+**Design sets the stage; decisions in flight play it out.** The design fixes what the spacecraft *can* do (margins, shielding, power, propellant, data capacity). After launch the player **manages** the mission with a few meaningful decisions during cruise and operations, always constrained by that design: a well-designed spacecraft has good options, a marginal one only bad ones. The report traces each outcome back to both the design choice and the in-flight decision.
 
 Trajectory, rocket and spacecraft (steps 3–5 below) form one **design workspace**: the player moves freely between them, every readout updates live, and a launch checklist (mass margin, TWR, Δv, budget, power) gates the launch button.
 
@@ -59,9 +59,9 @@ Trajectory, rocket and spacecraft (steps 3–5 below) form one **design workspac
    - The 3D spacecraft model updates as parts change (bigger panels, bigger dish).
 6. **Launch (3D).** The player's own rocket lifts off from a stylized pad, with visible staging (each stage separating as its propellant runs out), fairing separation, and a readout of Δv spent. Too little TWR → it doesn't leave the pad; not enough Δv → it never reaches the departure, and the report explains why.
 7. **Departure and cruise (3D cinematic).** Departure burn from Earth parking orbit, then cruise along the Lambert arc with time warp. Camera follows the spacecraft; planets at their real positions for each date.
-8. **Cruise events from real data.** Historical solar flares/CMEs from NASA DONKI are mapped onto cruise days (labelled "based on the real event of <date>"). The design decides the outcome (shielding, redundancy, power margin → nothing, safe mode, damaged instrument).
+8. **Cruise events from real data, with decisions.** Historical solar flares/CMEs from NASA DONKI are mapped onto cruise days (labelled "based on the real event of <date>"). Time warp stops and the player chooses a response, e.g. enter safe mode (lose time, protect electronics), keep instruments on (risk damage, gain cruise science), or reorient to shield with the bus. The options available and their odds depend on the design (shielding, power margin, battery). Also during cruise: **trajectory correction maneuvers** (TCMs). The Lambert arc has a small injection error from launch; the player decides when and how much propellant to spend correcting it (early is cheap, late is expensive, skipping risks a bad arrival).
 9. **Mars orbit insertion.** Capture burn using the spacecraft's propellant. Not enough → flyby (failure).
-10. **Science operations.** Simulated turns in Mars orbit, no player input. Power at 1.5 AU, data return limited by Earth–Mars distance (from the same ephemerides), signal delay d/c, and solar conjunction blackout if it falls in the period. Shown as a clear timeline: science collected vs. science actually downlinked.
+10. **Science operations.** Turns in Mars orbit. Each turn the player picks which instruments run and what to downlink, within the power and data budgets the design allows. Power at 1.5 AU, data return limited by Earth–Mars distance (from the same ephemerides), signal delay d/c, and solar conjunction blackout if it falls in the period. Shown as a clear timeline: science collected vs. science actually downlinked.
 11. **Report.** Outcome, score, stars, lessons tied to the physics of what happened, and a comparison with a real Mars orbiter (e.g. MAVEN or MRO: launch vehicle, mass, cost, arrival date).
 
 A live **Physics panel** stays from the prototype: in every phase it shows the concepts in play with formula, plain-language explanation and the current numbers plugged in. New concepts to add: Lambert's problem, C3, porkchop plot, mass margin, link budget.
@@ -123,7 +123,7 @@ Simplifications to declare on screen: two-body patched conics, impulsive burns, 
 
 ## 10. Non-goals and anti-goals
 
-**Non-goals:** player decisions after launch, piloted launch or landing, aerodynamic or physics-engine flight simulation, n-body or gravity-assist trajectories, multiplayer, accounts, backend, saving to cloud, mobile layout, the locked missions (Europa, asteroid) beyond their teaser cards.
+**Non-goals:** free-form piloting after launch (decisions are discrete choices, not stick-and-throttle control), piloted launch or landing, aerodynamic or physics-engine flight simulation, n-body or gravity-assist trajectories, multiplayer, accounts, backend, saving to cloud, mobile layout, the locked missions (Europa, asteroid) beyond their teaser cards.
 
 **Anti-goals (failure even if it works):**
 - Pretty 3D on top of fake or decorative math.
@@ -161,5 +161,5 @@ Not built now, but the prototype is structured so this cut is easy:
 7. **Build order in tiers**, so a working loop exists early: (a) data scripts + Lambert/porkchop + launch vehicle + spacecraft design + capture + report, end to end, plain visuals; (b) 3D cinematic scene and camera; (c) DONKI cruise events, physics-panel additions, polish. If time runs short, the end-to-end loop wins over any single demo shot.
 8. **Code written to be liftable.** Space Apps rules on pre-existing code are unconfirmed, so the solver, porkchop worker, fetch scripts and data files are clean, documented, tested modules that work both ways: the team can reuse them if allowed, or re-type them as a reference if not.
 9. **Dev shortcuts, not a video pipeline.** A URL flag to jump to any phase with a preset design and a fixed seed for events, so demo shots are repeatable. Producing the video itself is out of scope.
-10. (User decision) **The design decides everything**; no player input after launch. My reading of "make the game more complete": put that depth into the design phases (rocket, trajectory, spacecraft) and into a clear simulation of consequences, rather than adding in-flight choices.
+10. (User decision) **Decisions during cruise** stay. My calls on top: the cruise decisions are flare responses and trajectory correction maneuvers; operations also get light per-turn choices (instruments and downlink), since the challenge says "manage". Drop the operations choices if they feel like too much.
 11. Launch is a visualization of the computed numbers (staging timed from the rocket equation), not a physics-engine flight.
