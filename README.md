@@ -16,3 +16,4 @@ npm test   # roda node --test, sem instalar nada
 ```
 
 Documentação do projeto: `Contexto.md` → `Arquitetura.md` → `Desenvolvimento_guiado.md`. Estado atual em `PROJECT-STATE.md`.
+Jean Gustavo
