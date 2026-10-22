@@ -108,7 +108,8 @@ Simplifications to declare on screen: two-body patched conics, impulsive burns, 
 
 ## 8. Tech
 
-- **Vite + Three.js + plain JavaScript ES modules.** No UI framework.
+- (User decision) **Top-level, modern UI and UX; UI libraries allowed.** My call on the stack: **Vite + React + TypeScript**, **React Three Fiber + drei + postprocessing** for 3D, **Tailwind CSS + shadcn/ui (Radix)** for accessible components, **Motion** for transitions, **Zustand** for game state, **Vitest** for tests. A custom mission-control visual identity on top, not stock component styling.
+- Physics and game rules stay framework-free pure modules (ported to TypeScript), no React or DOM imports, fully unit-tested.
 - Reuse the prototype's pure modules where they fit: `js/physics/orbit.js`, `js/physics/rocket.js`, `js/data/constants.js`, the concepts/physics-panel pattern, the lessons pattern. Keep the "physics and game rules never touch the DOM" layering so they stay testable with `node --test`.
 - The prototype's KSP-style stage builder is kept as a concept and rebuilt as a 3D modular hangar with real engine data. The 2D canvas map is replaced by the 3D scene.
 - Translate all retained text from Portuguese to English.
@@ -153,7 +154,7 @@ Not built now, but the prototype is structured so this cut is easy:
 ## 13. Calls made by Claude (user to check)
 
 1. (User decision) **Modular rocket building in 3D** stays, with a lift-off of the player's own rocket. My call on top: parts use real engine specs, and real launch-vehicle C3 curves are used to validate preset rockets rather than as a pick list.
-2. Stack: Vite + Three.js + vanilla JS, dropping the prototype's "no frameworks / no 3D / no dependencies" rule.
+2. Stack: Vite + React + TypeScript + React Three Fiber + Tailwind/shadcn + Motion + Zustand (section 8), dropping the prototype's "no frameworks / no 3D / no dependencies" rule.
 3. All NASA data pre-fetched into static JSON (no live API calls during play).
 4. Mars orbiter only playable. Europa and asteroid missions shown as locked teasers.
 5. English-only UI. Desktop-first.
