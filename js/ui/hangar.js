@@ -85,21 +85,21 @@ function rocketTankShape(cx, y, width, height, parent) {
       'Z',
     ].join(' '),
     fill: 'url(#rocket-metal)',
-    stroke: '#64748b',
+    stroke: '#ff0000',
     'stroke-width': 0.8,
   }, parent);
 
   // Faixa de sombra lateral.
   svgNode('path', {
     d: `M ${right - 7} ${y + bevel} L ${right - 3} ${y + bevel} L ${right - 3} ${y + height - bevel} L ${right - 7} ${y + height - bevel} Z`,
-    fill: '#64748b',
+    fill: '#6b8b64',
     opacity: 0.48,
   }, parent);
 
   // Painel central.
   svgNode('path', {
     d: `M ${left + 5} ${y + bevel + 2} L ${right - 10} ${y + bevel + 2} L ${right - 10} ${y + height - bevel - 2} L ${left + 5} ${y + height - bevel - 2} Z`,
-    fill: '#e2e8f0',
+    fill: '#0026ff',
     opacity: 0.55,
   }, parent);
 
@@ -110,7 +110,7 @@ function rocketTankShape(cx, y, width, height, parent) {
       y1: ringY,
       x2: right - 2,
       y2: ringY,
-      stroke: '#64748b',
+      stroke: '#020202',
       'stroke-width': 1,
     }, parent);
   }
@@ -131,7 +131,7 @@ function rocketEngine(cx, y, width, parent) {
       'Z',
     ].join(' '),
     fill: 'url(#rocket-engine)',
-    stroke: '#475569',
+    stroke: '#ff00c3',
     'stroke-width': 1,
     'stroke-linejoin': 'round',
   }, parent);
@@ -142,7 +142,7 @@ function rocketEngine(cx, y, width, parent) {
     y1: y + 2,
     x2: cx + topWidth / 2,
     y2: y + 2,
-    stroke: '#f8fafc',
+    stroke: '#ffd500',
     'stroke-width': 1,
     opacity: 0.8,
   }, parent);
@@ -150,7 +150,7 @@ function rocketEngine(cx, y, width, parent) {
   svgNode('path', {
     d: `M ${cx - exitWidth / 2} ${y + height} Q ${cx} ${y + height + 3} ${cx + exitWidth / 2} ${y + height}`,
     fill: 'none',
-    stroke: '#94a3b8',
+    stroke: '#f7f7f7',
     'stroke-width': 1.5,
   }, parent);
 }
@@ -169,8 +169,8 @@ function rocketAdapter(cx, y, upperWidth, lowerWidth, height, parent) {
       `L ${lowerLeft} ${y + height}`,
       'Z',
     ].join(' '),
-    fill: '#94a3b8',
-    stroke: '#475569',
+    fill: '#9900ff',
+    stroke: '#00eaff',
     'stroke-width': 0.8,
   }, parent);
 
@@ -179,7 +179,7 @@ function rocketAdapter(cx, y, upperWidth, lowerWidth, height, parent) {
     y1: y + height - 3,
     x2: lowerRight - 2,
     y2: y + height - 3,
-    stroke: '#e2e8f0',
+    stroke: '#4e71a0',
     'stroke-width': 1.2,
   }, parent);
 }
@@ -204,7 +204,7 @@ function rocketFairing(cx, y, width, height, parent) {
       'Z',
     ].join(' '),
     fill: 'url(#rocket-fairing)',
-    stroke: '#64748b',
+    stroke: '#466084',
     'stroke-width': 1,
   }, parent);
 
@@ -212,7 +212,7 @@ function rocketFairing(cx, y, width, height, parent) {
   svgNode('path', {
     d: `M ${cx + 2} ${y + height * 0.18} Q ${cx + 5} ${shoulderY} ${cx + 5} ${baseY - 2}`,
     fill: 'none',
-    stroke: '#94a3b8',
+    stroke: '#0a70ff',
     'stroke-width': 1,
     opacity: 0.9,
   }, parent);
@@ -223,7 +223,7 @@ function rocketFairing(cx, y, width, height, parent) {
     y1: baseY - 5,
     x2: right - 2,
     y2: baseY - 5,
-    stroke: '#475569',
+    stroke: '#20da17',
     'stroke-width': 1,
   }, parent);
 }
