@@ -1,22 +1,12 @@
 <!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mission Architect</title>
-  <meta name="description" content="Monte um foguete, espere a janela de lançamento e leve uma sonda até Marte, entendendo a física de cada passo.">
-  <link rel="stylesheet" href="css/style.css">
-  <script type="module" src="js/main.js"></script>
-</head>
-<body>
-  <header class="top">
-    <h1>Mission Architect</h1>
-    <p><span id="phase"></span> · <span id="clock"></span></p>
-  </header>
-  <div class="layout">
-    <main id="main" tabindex="-1"></main>
-    <aside id="physics" class="physics" aria-label="Painel de Física"></aside>
-  </div>
-  <noscript>O jogo precisa de JavaScript ligado.</noscript>
-</body>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mission Architect</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/app/main.tsx"></script>
+  </body>
 </html>
