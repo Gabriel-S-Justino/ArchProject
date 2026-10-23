@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { dateFromJd, formatJd, jdFromDate } from '@/physics/time'
 
@@ -87,18 +88,54 @@ function laneOf(spans: TimelineSpan[]): number[] {
  * A mission timeline where length is exact duration: one day is the same width everywhere, so a
  * 293-day cruise visibly dwarfs a 30-day turn. Month ticks, years labelled. Purely presentational.
  */
+/** Rough width of an event label (12 px caps-free label face), px. */
+const labelWidth = (text: string) => text.length * 6.6 + 10
+const MAX_EVENT_ROWS = 4
+
+/**
+ * Rows for the event labels: each label goes to the first row where it does not overlap the labels
+ * already placed (estimated widths at the measured figure width), up to MAX_EVENT_ROWS.
+ */
+function eventRows(events: TimelineEvent[], frac: (jd: number) => number, widthPx: number): number[] {
+  const ends: number[] = []
+  return events.map((e) => {
+    const x = frac(e.jd) * widthPx
+    const w = labelWidth(e.label)
+    const [from, to] = frac(e.jd) > 0.8 ? [x - w, x] : [x, x + w]
+    let row = ends.findIndex((end) => end <= from)
+    if (row === -1) row = ends.length < MAX_EVENT_ROWS ? ends.length : ends.indexOf(Math.min(...ends))
+    ends[row] = Math.max(ends[row] ?? -Infinity, to)
+    return row
+  })
+}
+
 export function Timeline({ startJd, endJd, spans = [], events = [], nowJd, label, className }: TimelineProps) {
   const valid = Number.isFinite(startJd) && Number.isFinite(endJd) && endJd > startJd
   const span = valid ? endJd - startJd : 1
-  const pos = (jd: number) => `${(Math.min(1, Math.max(0, (jd - startJd) / span)) * 100).toFixed(3)}%`
+  const frac = (jd: number) => Math.min(1, Math.max(0, (jd - startJd) / span))
+  const pos = (jd: number) => `${(frac(jd) * 100).toFixed(3)}%`
   const lanes = laneOf(spans)
   const laneCount = Math.max(1, ...lanes.map((l) => l + 1))
   const spanArea = laneCount * 28
   const ticks = valid ? monthTicks(startJd, endJd) : []
   const visibleEvents = events.filter((e) => Number.isFinite(e.jd) && e.jd >= startJd && e.jd <= endJd)
 
+  const ref = useRef<HTMLElement>(null)
+  const [widthPx, setWidthPx] = useState(800)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setWidthPx(entry.contentRect.width)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const rows = eventRows(visibleEvents, frac, widthPx)
+  const rowCount = Math.max(2, ...rows.map((r) => r + 1))
+
   return (
-    <figure className={cn('relative select-none', className)} aria-label={label}>
+    <figure ref={ref} className={cn('relative select-none', className)} aria-label={label}>
       <ul className="sr-only">
         {spans.map((s) => (
           <li key={`s-${s.label}`}>
@@ -111,7 +148,7 @@ export function Timeline({ startJd, endJd, spans = [], events = [], nowJd, label
           </li>
         ))}
       </ul>
-      <div aria-hidden="true" className="relative" style={{ height: spanArea + (visibleEvents.length ? 88 : 40) }}>
+      <div aria-hidden="true" className="relative" style={{ height: spanArea + (visibleEvents.length ? 56 + rowCount * 16 : 40) }}>
         {/* spans */}
         {spans.map((s, i) => {
           const tone = s.tone ?? 'ink'
@@ -140,7 +177,7 @@ export function Timeline({ startJd, endJd, spans = [], events = [], nowJd, label
         {/* events */}
         {visibleEvents.map((e, i) => {
           const tone = e.tone ?? 'ink'
-          const row = i % 2
+          const row = rows[i] ?? 0
           return (
             <div key={`${e.label}-${i}`} className="absolute" style={{ left: pos(e.jd), top: spanArea - 2 }}>
               <div className={cn('w-px', BAR[tone])} style={{ height: 14 }} />

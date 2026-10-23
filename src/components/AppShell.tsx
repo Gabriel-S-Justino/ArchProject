@@ -2,8 +2,9 @@ import { BookOpen, Check, Lock } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { missionClock } from '@/app/missionClock'
-import { useGame, useTransfer, type DesignTab } from '@/app/store'
-import { canEnter, type GameSnapshot, type Phase } from '@/game/flow'
+import { canEnterPhase, useGame, useTransfer, type DesignTab, type PhaseGateState } from '@/app/store'
+import { MISSION } from '@/data/mission'
+import type { Phase } from '@/game/flow'
 import { cn } from '@/lib/utils'
 import { formatJd } from '@/physics/time'
 import { PhysicsPanel } from './PhysicsPanel'
@@ -23,10 +24,10 @@ export const STATIONS: { phase: Phase; name: string }[] = [
 /** Why a station cannot be entered yet (shown as its tooltip and accessible description). */
 const LOCK_REASON: Partial<Record<Phase, string>> = {
   launch: 'Opens when every launch check is go',
-  cruise: 'Opens after launch',
-  arrival: 'Opens after launch',
-  ops: 'Opens after arrival at Mars',
-  report: 'Opens after launch',
+  cruise: 'Opens after a launch that reaches its departure',
+  arrival: 'Opens when the cruise reaches Mars',
+  ops: 'Opens after capture into Mars orbit',
+  report: 'Opens when the flight ends',
 }
 
 /** In the design workspace the panel shows the concepts of the open tab, in journey order. */
@@ -135,7 +136,10 @@ function TopBar() {
   const epoch = useGame((s) => s.epoch)
   const setPhase = useGame((s) => s.setPhase)
   const transfer = useTransfer()
-  const clock = missionClock(phase, transfer)
+  const cruiseJd = useGame((s) => s.cruise?.sim.jd ?? null)
+  // The start of the turn about to run; once operations are over, the end of the last turn.
+  const opsJd = useGame((s) => (s.ops ? s.ops.startJd + s.ops.turn * MISSION.turnDays : null))
+  const clock = missionClock(phase, transfer, { cruiseJd, opsJd })
 
   return (
     <header className="flex h-(--topbar-h) items-stretch gap-6 border-b border-rule bg-ground px-5">
@@ -184,7 +188,10 @@ function PhaseStepper() {
   const launched = useGame((s) => s.launched)
   const arrived = useGame((s) => s.arrived)
   const opsDone = useGame((s) => s.opsDone)
-  const snapshot: GameSnapshot = { design, launched, arrived, opsDone }
+  const launch = useGame((s) => s.launch)
+  const cruise = useGame((s) => s.cruise)
+  const result = useGame((s) => s.result)
+  const gate: PhaseGateState = { design, launched, arrived, opsDone, launch, cruise, result }
 
   // Stations the player has reached stay marked when they step back (nothing disappears).
   const currentIndex = STATIONS.findIndex((s) => s.phase === phase)
@@ -198,7 +205,7 @@ function PhaseStepper() {
       <ol className="flex min-w-0 items-stretch">
         {STATIONS.map((st, i) => {
           const current = st.phase === phase
-          const open = canEnter(st.phase, snapshot)
+          const open = canEnterPhase(st.phase, gate)
           const done = !current && i <= reached
           const reason = open ? undefined : LOCK_REASON[st.phase]
           return (

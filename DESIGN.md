@@ -195,7 +195,13 @@ All corners are square (`--radius` 2 px). Bars are flat rectangles. The only rou
 `{ items: CheckItem[], title?, headingLevel? }`. A go/no-go poll. Every item keeps its row in its given order, with the icon, the word, the label and the numbers behind the verdict. The header shows "n of m go" and ALL GO / HOLD.
 
 ### Timeline (`src/components/Timeline.tsx`)
-`{ startJd, endJd, spans?, events?, nowJd?, label }`. Length is exact duration (one day is the same width everywhere). Overlapping spans get lanes, the axis has month ticks with the years in ink-2, and events are leader lines with labels in two rows below the axis. The full content is repeated in an `sr-only` list.
+`{ startJd, endJd, spans?, events?, nowJd?, label }`. Length is exact duration (one day is the same width everywhere). Overlapping spans get lanes, the axis has month ticks with the years in ink-2, and events are leader lines with labels in up to four rows below the axis, each label in the first row where it does not overlap another. The full content is repeated in an `sr-only` list.
+
+### TimeWarp (`src/components/TimeWarp.tsx`)
+`{ rate, onRateChange, onAdvance, lockedReason? }`. A segmented radio group: Pause, 1, 5, 20 days per second, driven by `requestAnimationFrame`. When `onAdvance` reports a stop it pauses itself; while a decision is pending the rates are disabled and `lockedReason` says why. Nothing eases, so reduced motion changes nothing.
+
+### DecisionCard (`src/components/DecisionCard.tsx`)
+`{ event, jd, options, onChoose, note? }`. A flare decision under a 2px Mars rule (the player's choice): the real DONKI date, class and source region with a link to the record, then one ruled row per response with its damage risk and cost, a quiet "Choose" button, and for a ruled-out response the NO-GO word and the reason. The game-balance note sits under the rows.
 
 ### PhysicsPanel (`src/components/PhysicsPanel.tsx`)
 `{ phase, conceptIds?, collapsed?, onCollapsedChange? }`. The equation sheet. Each concept shows its title with the equation number (n) on the right, the formula in STIX italic, the plain idea in ink-2, the analogy in italic ink-3, and a sunken "With your design" block holding `live(view)`. The live text cross-fades when it changes. Collapsed, it becomes a 44 px rail with vertical "Physics · n". `conceptIds` lets a design tab show its own subset. Concepts live in `src/data/concepts.ts`, and `live()` never throws and never prints NaN.

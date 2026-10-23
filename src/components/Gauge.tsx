@@ -21,6 +21,8 @@ export interface GaugeProps {
   thresholdLabel?: string
   /** Overrides the status computed from value and threshold. */
   status?: Status
+  /** false: draw the threshold as a target without judging the value (progress toward a goal). Default true. */
+  judge?: boolean
   className?: string
 }
 
@@ -53,9 +55,10 @@ export function Gauge({
   digits = 0,
   thresholdLabel = 'limit',
   status,
+  judge = true,
   className,
 }: GaugeProps) {
-  const s = status ?? gaugeStatus(value, threshold, limit)
+  const s = status ?? (judge ? gaugeStatus(value, threshold, limit) : undefined)
   const scaleMax = Number.isFinite(max) && max > 0 ? max : Math.max(1, Number.isFinite(value) ? value : 1)
   const frac = clamp01(value / scaleMax)
   const tick = threshold !== undefined && Number.isFinite(threshold) ? clamp01(threshold / scaleMax) : null

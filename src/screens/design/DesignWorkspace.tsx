@@ -3,8 +3,18 @@
 // against the budget, the go/no-go poll, the Launch button).
 import { ArrowRight } from 'lucide-react'
 import { Tabs } from 'radix-ui'
-import { useEffect } from 'react'
-import { useCapacityKg, useChecklist, useGame, useRocketStats, useSpacecraftStats, useTransfer, type DesignTab } from '@/app/store'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  selectLaunchOverride,
+  useCanLaunch,
+  useCapacityKg,
+  useChecklist,
+  useGame,
+  useRocketStats,
+  useSpacecraftStats,
+  useTransfer,
+  type DesignTab,
+} from '@/app/store'
 import { ActionButton } from '@/components/ActionButton'
 import { Checklist } from '@/components/Checklist'
 import { Gauge } from '@/components/Gauge'
@@ -90,13 +100,17 @@ export function DesignWorkspace() {
 
 function DesignRail({ onOpenTab }: { onOpenTab: (t: DesignTab) => void }) {
   const checklist = useChecklist()
+  const canLaunch = useCanLaunch()
   const transfer = useTransfer()
   const capacity = useCapacityKg()
   const sc = useSpacecraftStats()
   const rocket = useRocketStats()
-  const setPhase = useGame((s) => s.setPhase)
+  const startLaunch = useGame((s) => s.startLaunch)
+  const launched = useGame((s) => s.launched)
+  const design = useGame((s) => s.design)
+  const override = useMemo(() => selectLaunchOverride({ design }), [design])
+  const [confirming, setConfirming] = useState(false)
   const noGo = checklist.filter((i) => !i.ok).length
-  const canLaunch = checklist.length > 0 && noGo === 0
   const limit = MISSION.launchMargin * capacity
   const cost = rocket.costM + sc.costM
 
@@ -149,12 +163,42 @@ function DesignRail({ onOpenTab }: { onOpenTab: (t: DesignTab) => void }) {
         />
       </div>
       <div className="flex flex-col gap-2 border-t border-rule pt-4 pb-6">
-        <ActionButton disabled={!canLaunch} onClick={() => setPhase('launch')} icon={<ArrowRight aria-hidden />} className="w-full justify-between">
+        {launched && (
+          <p className="text-detail text-caution">
+            <span className="label-caps">Caution</span> This design is flying. Any change scrubs the flight and starts again from the pad.
+          </p>
+        )}
+        <ActionButton disabled={!canLaunch} onClick={() => startLaunch()} icon={<ArrowRight aria-hidden />} className="w-full justify-between">
           Launch
         </ActionButton>
         <p className="text-detail text-ink-3" aria-live="polite">
-          {canLaunch ? 'All checks go. The launch station is open.' : `Launch opens when every check is go: ${noGo} no-go.`}
+          {canLaunch ? 'All checks go. Clear to launch.' : `Launch opens when every check is go: ${noGo} no-go.`}
         </p>
+        {override &&
+          (confirming ? (
+            <div className="flex flex-col gap-2 border-t border-nogo pt-2" role="group" aria-label="Launch against the checklist">
+              <p className="text-detail text-ink-2">
+                <span className="label-caps text-nogo">No-go</span> {override.map((i) => i.label).join(' · ')}. The rocket may stay on
+                the pad or fall short of Mars, and the report will show why.
+              </p>
+              <div className="flex gap-2">
+                <ActionButton tone="quiet" onClick={() => startLaunch({ override: true })}>
+                  Launch anyway
+                </ActionButton>
+                <ActionButton tone="quiet" onClick={() => setConfirming(false)}>
+                  Cancel
+                </ActionButton>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="self-start text-detail text-ink-2 underline decoration-rule-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+            >
+              Launch against the checklist…
+            </button>
+          ))}
       </div>
     </aside>
   )

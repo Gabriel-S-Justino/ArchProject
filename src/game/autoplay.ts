@@ -14,7 +14,6 @@ import { MISSION } from '@/data/mission'
 import { spacecraftPartById } from '@/data/spacecraftParts'
 import { launchTimeline, rocketStats, type LaunchTimeline } from '@/physics/launcher'
 import { transferFor } from '@/physics/porkchop'
-import { formatJd } from '@/physics/time'
 import type { MissionDesign } from './checklist'
 import {
   advanceCruise,
@@ -145,7 +144,8 @@ export function tickCruise(p: CruiseProgress, days: number): { progress: CruiseP
   const sim = advanceCruise(p.sim, step)
   if (sim === p.sim) return { progress: p, stopped: null }
   const reached = sim.jd >= stop.jd - EPS
-  return { progress: { ...p, sim }, stopped: reached ? stop.kind : null }
+  // Snap a reached stop to its exact date: float round-off (≪ 1 s) must not show the day before.
+  return { progress: { ...p, sim: reached ? { ...sim, jd: stop.jd } : sim }, stopped: reached ? stop.kind : null }
 }
 
 /** Burns the TCM due now. Null when no TCM is due or the ship cannot afford it (tcmQuote says why). */
@@ -436,6 +436,3 @@ export function autoplay(design: MissionDesign, seed: number, until: FlightPhase
   }
   return { ...flightReport(f, design), phase: 'report' }
 }
-
-/** A short date-stamped line for a log entry, e.g. "15 Nov 2026 · TCM-1". */
-export const logLabel = (e: CruiseLogEntry) => `${formatJd(e.jd)} · ${e.title}`

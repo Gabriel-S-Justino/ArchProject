@@ -59,7 +59,16 @@ function layout(r: RocketDesign) {
   return { blocks, fairing, booster: b && nb > 0 ? { n: nb, d: b.diameterM, l: b.lengthM } : null, height: fairing.y1 }
 }
 
-export function StackElevation({ rocket }: { rocket: RocketDesign }) {
+/** Parts already dropped in flight (the launch screen ticks them off); drawn as faint outlines. */
+export interface StackDropped {
+  boosters?: boolean
+  /** Number of bottom stages separated. */
+  stages?: number
+  fairing?: boolean
+}
+
+export function StackElevation({ rocket, dropped }: { rocket: RocketDesign; dropped?: StackDropped }) {
+  const gone = (on: boolean | undefined) => (on ? { opacity: 0.18, strokeDasharray: '0.6 0.6' } : {})
   const { blocks, fairing, booster, height } = layout(rocket)
   // viewBox in metres; 4 m of margin, and room for one booster column per side.
   const maxD = Math.max(fairing.d, ...blocks.map((b) => b.d), 1)
@@ -88,7 +97,7 @@ export function StackElevation({ rocket }: { rocket: RocketDesign }) {
         [-1, 1].map((sgn) => {
           const x = sgn * ((blocks[0]?.d ?? 3) / 2 + booster.d / 2 + 0.15)
           return (
-            <g key={sgn} fill="var(--ground-raised)" stroke={stroke} strokeWidth={0.12}>
+            <g key={sgn} fill="var(--ground-raised)" stroke={stroke} strokeWidth={0.12} {...gone(dropped?.boosters)}>
               <path
                 d={`M${x - booster.d / 2},${yOf(1.5)} V${yOf(booster.l - booster.d)} L${x},${yOf(booster.l)} L${x + booster.d / 2},${yOf(booster.l - booster.d)} V${yOf(1.5)} Z`}
               />
@@ -101,7 +110,7 @@ export function StackElevation({ rocket }: { rocket: RocketDesign }) {
         const r = b.d / 2
         const bellW = Math.min(b.d / Math.max(1, b.engines), 2.2)
         return (
-          <g key={b.stage}>
+          <g key={b.stage} {...gone(dropped?.stages !== undefined && b.stage < dropped.stages)}>
             {/* engine bells */}
             {Array.from({ length: b.engines }, (_, k) => {
               const cx = (k - (b.engines - 1) / 2) * bellW
@@ -141,6 +150,7 @@ export function StackElevation({ rocket }: { rocket: RocketDesign }) {
           fill="var(--ground)"
           stroke={stroke}
           strokeWidth={0.14}
+          {...gone(dropped?.fairing)}
         >
           <title>{`Fairing, ${fairingKg.toLocaleString('en-US')} kg`}</title>
         </path>
