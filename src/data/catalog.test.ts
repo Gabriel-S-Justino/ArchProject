@@ -297,7 +297,7 @@ describe('mission, real missions, DONKI', () => {
     expect(MISSION.parkingAltitudeM).toBe(200e3)
     expect(MISSION.capturePeriapsisAltM).toBe(300e3)
     expect(MISSION.captureApoapsisAltM).toBe(33_000e3)
-    expect(MISSION.minLiftoffTwr).toBe(1.2)
+    expect(MISSION.minLiftoffTwr).toBe(1.1)
     expect(MISSION.opsTurns).toBe(6)
     expect(MISSION.turnDays).toBe(30)
     expect(MISSION.scienceTarget).toBe(100)
