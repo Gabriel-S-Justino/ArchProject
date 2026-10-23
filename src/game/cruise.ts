@@ -72,7 +72,7 @@ export type TcmWindowId = (typeof TCM_WINDOWS)[number]['id']
 /** Standard deviation of the injection error per axis, m/s (game balance, typical of upper stages). */
 export const INJECTION_ERROR_SIGMA_MS = 2
 
-/** Capture is possible only if the predicted closest approach is within this distance of Mars, km. */
+/** Capture is possible only if the predicted distance from the aim point (Mars' centre) on the arrival date is within this, km. */
 export const CAPTURE_MAX_MISS_KM = 10_000
 
 /** Dates closer than this (days, ≈ 0.09 s) count as equal, so float round-off never repeats a window. */
@@ -270,14 +270,15 @@ export interface ArrivalResult {
   /** Mars orbit insertion Δv at that v∞ into the MISSION capture orbit, m/s. */
   moiDvMs: number
   reason?: 'miss' | 'propellant'
-  /** Predicted closest approach to Mars' centre, km (finite; capped at 1e12 if unknown). */
+  /** Distance from the aim point (Mars' centre) on the arrival date, km (R34; finite, capped at 1e12 if unknown). Not a closest approach. */
   missKm: number
   /** Propellant left after arrival (MOI subtracted on capture), kg — for scoring. */
   propellantLeftKg: number
 }
 
 /**
- * Arrival at Mars. Capture iff the predicted miss is ≤ 10,000 km and the propellant covers the
+ * Arrival at Mars. Capture iff the distance from the aim point (Mars' centre) on the arrival date
+ * (R34, not a closest approach) is ≤ 10,000 km and the propellant covers the
  * capture burn into the 300 km × 33,000 km orbit at the actual v∞ (rocket equation on the current
  * mass); otherwise a flyby, with the reason ('miss' takes precedence).
  */
