@@ -4,6 +4,8 @@ A browser game for the NASA Space Apps Challenge 2026 challenge **"Space Mission
 
 This branch (`vision-prototype`) is a **vision prototype**: it shows the team what a strong entry can look like. The 48-hour hackathon version will be a smaller rebuild (see [Hackathon cut-down](#hackathon-cut-down)).
 
+> 🇧🇷 **Documentação completa em português:** [docs/README.md](docs/README.md) (arquitetura, desenvolvimento, física, dados, jogabilidade, plano para o hackathon e registro de decisões).
+
 | Trajectory design: porkchop plot and 3D preview | Launch of the player's own rocket |
 |---|---|
 | ![Porkchop plot with C3 contours and the 3D solar-system preview](docs/screenshots/porkchop.png) | ![Launch screen with the 3D lift-off and flight events](docs/screenshots/launch.png) |
@@ -36,7 +38,7 @@ Requires **Node ≥ 22.12**.
 ```bash
 npm install
 npm run dev        # Vite dev server, http://localhost:5173
-npm test           # Vitest unit tests (physics, game rules, data catalogs)
+npm test           # Vitest unit tests (physics, game rules, data catalogs, store, UI and 3D-scene helpers)
 npm run typecheck  # tsc, no emit
 npm run build      # typecheck + production build into dist/
 npm run preview    # serve the production build
@@ -52,7 +54,7 @@ Jump straight to any screen with the reference design and a fixed event seed, fo
 http://localhost:5173/?phase=cruise&preset=reference&seed=1
 ```
 
-- `phase`: `select`, `briefing`, `design`, `launch`, `cruise`, `arrival`, `ops`, `report`, `sources`. `launch`, `cruise`, `arrival`, `ops` and `report` need `preset=reference` (the default design does not pass the launch checklist); for the flight phases the game autoplays the reference flight up to that point. A phase that cannot be entered, or an unknown phase, falls back to mission select.
+- `phase`: `select`, `briefing`, `design`, `launch`, `cruise`, `arrival`, `ops`, `report`, `sources`. `launch`, `cruise`, `arrival`, `ops` and `report` need `preset=reference` (the default design does not pass the launch checklist); `launch` opens the pre-launch screen with the reference design; from `cruise` onward the game autoplays the reference flight up to that point. A phase that cannot be entered, or an unknown phase, falls back to mission select.
 - `preset=reference`: load the reference design (Atlas V 401-class rocket, 1,507 kg spacecraft, minimum-C3 transfer).
 - `seed=<int>`: fixes which flares happen and the launch injection error. Without it, every new game gets a fresh seed.
 
@@ -68,6 +70,8 @@ This runs two dependency-free Node scripts:
 
 - `scripts/fetch-horizons.mjs`: daily heliocentric state vectors of Earth and Mars (ecliptic J2000, 2026-07-01 to 2029-07-01) from the JPL Horizons API into `src/data/generated/ephemeris-{earth,mars}.json`.
 - `scripts/fetch-donki.mjs`: M- and X-class solar flares of 2024 from NASA DONKI into `src/data/generated/donki-flares.json`. It tries `api.nasa.gov` first (set `NASA_API_KEY`, otherwise it uses `DEMO_KEY`), then the CCMC endpoint behind it. If both fail it exits with an error and never writes invented events.
+
+> **Careful:** `npm run fetch:data` runs DONKI in live mode. If the live API answers, it replaces the committed archived file with a full-year 2024 set, and `src/data/catalog.test.ts` (which pins the three archived windows / 241 flares) plus the DONKI entry in `src/data/sources.ts` must be updated. To refresh only the ephemerides, run `node scripts/fetch-horizons.mjs`.
 
 `node scripts/fetch-donki.mjs --from-wayback` is a documented manual fallback that reads Wayback Machine snapshots of real DONKI responses. **The committed flare file was built this way**: on 2026-10-22 both live DONKI endpoints were down, so it holds three archived ~30-day DONKI windows (241 M/X flares between May and December 2024, partial-year coverage). The `source` field and the in-game Data sources screen say so.
 
@@ -103,7 +107,7 @@ Engine and stage figures from manufacturers (ULA, SpaceX, Northrop Grumman, L3Ha
 
   The reference and our result are also on the Data sources screen.
 - **Launch vehicles.** Capacity to a C3 is the largest payload for which the stack's Δv covers the ascent plus the departure burn (bisection). The three preset rockets with NASA LSP curves (Atlas V 401, Falcon Heavy expendable, Vulcan VC4) match every LSP point to within −7.9 % (Falcon Heavy, worst case) and +6.6 % (Atlas V 401); the test asserts ±15 %.
-- **Spacecraft.** Capture burn from the arrival v∞ into a 300 × 33,000 km orbit, propellant from the rocket equation; solar power ∝ 1/r²; radio data rate ∝ 1/d² with one Deep Space Network pass per day; signal delay d/c; solar-conjunction blackout.
+- **Spacecraft.** Capture burn from the arrival v∞ into a 300 × 33,000 km orbit, propellant from the rocket equation; solar power ∝ 1/r²; radio data rate ∝ 1/d² with 8 hours of Deep Space Network contact per day (game balance); signal delay d/c; solar-conjunction blackout.
 
 How the game simplifies (also listed on the Data sources screen):
 
@@ -131,10 +135,12 @@ src/
   screens/          mission select, briefing, design workspace, launch, cruise, arrival, ops,
                     report, data sources
   scenes/           React Three Fiber scenes: hangar, launch, solar system, spacecraft, Mars arrival
-docs/               design spec, implementation plan, screenshots
+docs/               project docs (pt-BR), design spec, implementation plan, screenshots
 ```
 
-Documentation:
+Documentation (team docs in Brazilian Portuguese, index at [docs/README.md](docs/README.md)):
+
+- [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Physics](docs/PHYSICS.md) · [Data](docs/DATA.md) · [Gameplay](docs/GAMEPLAY.md) · [Hackathon playbook](docs/HACKATHON.md) · [Decision log](docs/DECISIONS.md)
 
 - [Design spec](docs/superpowers/specs/2026-10-22-mission-architect-vision-design.md): intent, player journey, data, math.
 - [Implementation plan](docs/superpowers/plans/2026-10-22-mission-architect-vision.md): the 17 tasks this prototype was built in.
