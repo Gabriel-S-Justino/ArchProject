@@ -22,6 +22,9 @@ export const C3_CONTOURS = [8, 10, 12, 15, 20] as const
 /** Dashed arrival v∞ contours, km/s. */
 export const VINF_CONTOURS = [3, 4, 5, 6] as const
 
+/** Margins of the plot area inside the porkchop figure, px: room for the axes and the arrival-axis title above. */
+export const PLOT_MARGIN = { top: 30, right: 14, bottom: 46, left: 78 } as const
+
 export interface Cell {
   iDep: number
   iArr: number
@@ -234,22 +237,47 @@ export function usableTransfer(t: Transfer | null): Transfer | null {
 // ---------------------------------------------------------------------------------------------
 // Contours
 
+/** Fill for "no transfer" cells far from any valid cell: above every threshold. */
+const FAR = 1e9
+
 /**
  * A grid as a d3-contour field, padded by one cell on every side with copies of the edge values
- * (so rings close outside the plot instead of tracing its frame) and with "no transfer" cells
- * filled with a huge value (above every threshold, so the island's rings never wrap around them).
+ * (so rings close outside the plot instead of tracing its frame). A "no transfer" cell next to
+ * valid cells takes the largest of their values, so no threshold falls between them and no line is
+ * drawn through a valid cell's centre at the edge of an empty region (the plot masks empty cells,
+ * but half of such a line would sit on the valid cell); "no transfer" cells with no valid
+ * neighbour get a huge value, so the island's rings never wrap around them.
  * Size (nDep + 2) × (nArr + 2), row 0 = first arrival date. Coordinates d3-contour returns are
  * padded-grid units: subtract 1 to get grid units.
  */
 export function contourField(values: Float32Array, nDep: number, nArr: number): Float64Array {
+  const filled = new Float64Array(nDep * nArr)
+  for (let iArr = 0; iArr < nArr; iArr++) {
+    for (let iDep = 0; iDep < nDep; iDep++) {
+      const v = values[iArr * nDep + iDep]!
+      if (Number.isFinite(v)) {
+        filled[iArr * nDep + iDep] = v
+        continue
+      }
+      let max = -Infinity
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const y = iArr + dy
+          const x = iDep + dx
+          if ((dx === 0 && dy === 0) || y < 0 || y >= nArr || x < 0 || x >= nDep) continue
+          const n = values[y * nDep + x]!
+          if (Number.isFinite(n) && n > max) max = n
+        }
+      }
+      filled[iArr * nDep + iDep] = Number.isFinite(max) ? max : FAR
+    }
+  }
   const w = nDep + 2
   const h = nArr + 2
   const out = new Float64Array(w * h)
-  const at = (iDep: number, iArr: number) => {
-    const v = values[clampInt(iArr, 0, nArr - 1) * nDep + clampInt(iDep, 0, nDep - 1)]!
-    return Number.isFinite(v) ? v : 1e9
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) out[y * w + x] = filled[clampInt(y - 1, 0, nArr - 1) * nDep + clampInt(x - 1, 0, nDep - 1)]!
   }
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) out[y * w + x] = at(x - 1, y - 1)
   return out
 }
 
@@ -298,7 +326,54 @@ export interface Box {
   h: number
 }
 
-const overlaps = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+export const overlaps = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+
+/** Whether the crosshair through (cx, cy) (a full-width and a full-height line) crosses a box. */
+export function crosshairCrosses(cx: number, cy: number, b: Box): boolean {
+  return (cx >= b.x && cx <= b.x + b.w) || (cy >= b.y && cy <= b.y + b.h)
+}
+
+/**
+ * Box of a marker's text label (bold 12 px figures, drawn `dx` right and `dy` above the marker's
+ * baseline), estimated from its length: wide enough to keep the crosshair and tooltip off it.
+ */
+export function markerLabelBox(x: number, y: number, text: string, dx = 10, dy = -8): Box {
+  return { x: x + dx - 2, y: y + dy - 12, w: text.length * 7 + 4, h: 16 }
+}
+
+/**
+ * Top-left corner of the tooltip (w × h) beside the crosshair at (x, y) in a plot of W × H: up-right
+ * by default, flipping left near the right edge and below near the top, and then trying the other
+ * corners when the preferred one would cover a box in `avoid` (the "Minimum C3" label, the
+ * player's marker). Kept inside the plot horizontally; it may hang below it into the axis margin
+ * by up to `belowSlack`.
+ */
+export function tooltipPlacement(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  W: number,
+  H: number,
+  avoid: Box[] = [],
+  gap = 14,
+  belowSlack = 0,
+): { left: number; top: number } {
+  const right = x > W * 0.6
+  const below = y < H * 0.38
+  const at = (r: boolean, b: boolean) => ({ left: r ? x - gap - w : x + gap, top: b ? y + gap : y - gap - h })
+  const order: [boolean, boolean][] = [
+    [right, below],
+    [!right, below],
+    [right, !below],
+    [!right, !below],
+  ]
+  const fits = (p: { left: number; top: number }) => p.left >= 0 && p.left + w <= W && p.top >= 0 && p.top + h <= H + belowSlack
+  const clear = (p: { left: number; top: number }) => !avoid.some((b) => overlaps(b, { x: p.left, y: p.top, w, h }))
+  const candidates = order.map(([r, b]) => at(r, b))
+  const pick = candidates.find((p) => fits(p) && clear(p)) ?? candidates.find(fits) ?? candidates[0]!
+  return { left: Math.min(Math.max(pick.left, 0), Math.max(0, W - w)), top: pick.top }
+}
 
 /**
  * One label per contour line: the candidate point with the lowest score whose label box (from

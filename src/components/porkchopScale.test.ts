@@ -1,3 +1,4 @@
+import { contours } from 'd3-contour'
 import { describe, expect, it } from 'vitest'
 import { computePorkchop, DEFAULT_PORKCHOP, transferFor, type PorkchopGrid } from '@/physics/porkchop'
 import { jdFromIso } from '@/physics/time'
@@ -11,6 +12,9 @@ import {
   cellJds,
   cellValues,
   contourField,
+  crosshairCrosses,
+  markerLabelBox,
+  tooltipPlacement,
   depFx,
   heatmapPixels,
   monthTicks,
@@ -136,15 +140,61 @@ describe('cell picking', () => {
 })
 
 describe('contour field', () => {
-  it('pads with edge copies and fills NaN above every threshold', () => {
+  it('pads with edge copies; an empty cell beside valid ones takes their largest value', () => {
     const g = toy()
     const f = contourField(g.c3, g.nDep, g.nArr)
     expect(f.length).toBe(5 * 4)
-    // padded row 1 = iArr 0: [10 | 10, 20, NaN→1e9 | 1e9]
-    expect(Array.from(f.slice(5, 10))).toEqual([10, 10, 20, 1e9, 1e9])
+    // padded row 1 = iArr 0: [10 | 10, 20, NaN→max(20, 2000, 9) | 2000]
+    expect(Array.from(f.slice(5, 10))).toEqual([10, 10, 20, 2000, 2000])
     // padded row 0 copies row iArr 0
-    expect(Array.from(f.slice(0, 5))).toEqual([10, 10, 20, 1e9, 1e9])
+    expect(Array.from(f.slice(0, 5))).toEqual([10, 10, 20, 2000, 2000])
     expect(f.every((v) => Number.isFinite(v))).toBe(true)
+  })
+
+  it('draws no contour through a valid sub-threshold cell at the edge of an empty region', () => {
+    const nan = Number.NaN
+    // 3 × 3, only the centre has a transfer (C3 9): no level-10 line may ring it.
+    const values = new Float32Array([nan, nan, nan, nan, 9, nan, nan, nan, nan])
+    const f = contourField(values, 3, 3)
+    const [ring] = contours().size([5, 5]).thresholds([10])(Array.from(f))
+    expect(ring!.coordinates).toHaveLength(0)
+  })
+
+  it('keeps empty cells away from any transfer above every threshold, so rings never wrap them', () => {
+    const nan = Number.NaN
+    // 4 × 1: [8, NaN, NaN, NaN]: the second cell borders the 8, the last two are far.
+    const f = contourField(new Float32Array([8, nan, nan, nan]), 4, 1)
+    expect(Array.from(f.slice(6, 12))).toEqual([8, 8, 8, 1e9, 1e9, 1e9])
+  })
+})
+
+describe('overlay placement', () => {
+  it('crosshairCrosses: either line through a box', () => {
+    const b = { x: 100, y: 50, w: 60, h: 16 }
+    expect(crosshairCrosses(120, 300, b)).toBe(true) // vertical line through it
+    expect(crosshairCrosses(10, 58, b)).toBe(true) // horizontal line through it
+    expect(crosshairCrosses(10, 300, b)).toBe(false)
+  })
+
+  it('markerLabelBox grows with the text and sits above right of the marker', () => {
+    const short = markerLabelBox(100, 100, 'Your transfer')
+    const long = markerLabelBox(100, 100, 'Your transfer · minimum C3 9.18')
+    expect(long.w).toBeGreaterThan(short.w)
+    expect(short.x).toBeGreaterThan(100)
+    expect(short.y + short.h).toBeLessThanOrEqual(100)
+  })
+
+  it('tooltipPlacement prefers up-right, flips near the edges and moves off a box it would cover', () => {
+    expect(tooltipPlacement(100, 300, 180, 100, 600, 400)).toEqual({ left: 114, top: 186 })
+    // near the right edge: to the left
+    expect(tooltipPlacement(500, 300, 180, 100, 600, 400).left).toBe(500 - 14 - 180)
+    // near the top: below
+    expect(tooltipPlacement(100, 50, 180, 100, 600, 400).top).toBe(64)
+    // the up-right spot would cover the "Minimum C3" label: another corner is taken
+    const label = { x: 320, y: 220, w: 160, h: 16 }
+    expect(tooltipPlacement(300, 300, 180, 100, 600, 400)).toEqual({ left: 314, top: 186 }) // would cover it
+    const p = tooltipPlacement(300, 300, 180, 100, 600, 400, [label])
+    expect(p.left + 180 <= label.x || p.left >= label.x + label.w || p.top >= label.y + label.h || p.top + 100 <= label.y).toBe(true)
   })
 })
 
