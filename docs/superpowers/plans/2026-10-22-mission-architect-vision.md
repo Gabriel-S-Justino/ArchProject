@@ -20,7 +20,7 @@
 - Every data file and catalog entry carries `source` (and `url` when there is one) and the fetch date. Every displayed number is real, computed from real data, or labelled "game balance".
 - The game never calls a network API at runtime. All textures, fonts and data are in the repo.
 - Physical constants (from legacy `js/data/constants.js`, plus): `G0 = 9.80665`, `AU = 1.495978707e11`, `C = 299792458`, `DAY = 86400`, `MU_SUN = 1.32712440018e20`, `MU_EARTH = 3.986004418e14`, `MU_MARS = 4.282837e13`, `R_EARTH = 6371e3`, `R_MARS = 3389.5e3`, `SOI_MARS = 577e6` m.
-- Mission constants (from legacy `js/data/mission.js`, translated): parking orbit altitude 200 km; capture orbit periapsis 300 km × apoapsis 33,000 km; min liftoff TWR 1.2; operations 6 turns × 30 days; science target 100; onboard buffer 40 Gbit; ascent Δv budget `ASCENT_DV = 9400` m/s (game balance, tunable in Task 6 only).
+- Mission constants (from legacy `js/data/mission.js`, translated): parking orbit altitude 200 km; capture orbit periapsis 300 km × apoapsis 33,000 km; min liftoff TWR 1.1 (R18; was 1.2); operations 6 turns × 30 days; science target 100; onboard buffer 40 Gbit; ascent Δv = `ASCENT_DV` 9400 m/s (at liftoff TWR 1.5) + `GRAVITY_LOSS_K` 3000 × (1/TWR − 1/1.5) (R17, game balance calibrated to LSP).
 - Launch margin rule: spacecraft wet mass ≤ 0.9 × rocket capacity at the chosen C3.
 - Phases: `'select' | 'briefing' | 'design' | 'launch' | 'cruise' | 'arrival' | 'ops' | 'report' | 'sources'`.
 - Dev URL flags: `?phase=<phase>&preset=reference&seed=<int>`. Unknown values fall back to `select` without error.
