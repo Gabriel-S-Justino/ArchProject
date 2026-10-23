@@ -28,8 +28,9 @@ understands why; a judge remembers the visual impact and the serious math on rea
 ## Positioning
 
 One real feedback loop, the one mission designers use: launch date → C3 and arrival v∞ → rocket
-capacity and capture propellant → maximum spacecraft mass → budget. Every number is computed live
-from JPL Horizons ephemerides, NASA LSP launch curves and NASA DONKI flares, not decorative.
+capacity and capture propellant → maximum spacecraft mass → budget. The loop's numbers are computed
+live from JPL Horizons ephemerides, published engine and stage data checked against NASA LSP launch
+curves, and NASA DONKI flares, not decorative.
 
 ## Operating Context
 

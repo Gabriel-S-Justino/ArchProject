@@ -1,6 +1,6 @@
 # Mission Architect
 
-A browser game for the NASA Space Apps Challenge 2026 challenge **"Space Mission Design Game"**. You plan one Mars orbiter mission ("Red Watch") from start to finish: pick a launch date on a real porkchop plot, build a rocket that can deliver your spacecraft, design the spacecraft, launch, fly the cruise, capture into Mars orbit, run science operations, and read a report that explains every outcome with physics. Every number on screen comes from NASA data, is computed from it, or is labelled "game balance".
+A browser game for the NASA Space Apps Challenge 2026 challenge **"Space Mission Design Game"**. You plan one Mars orbiter mission ("Red Watch") from start to finish: pick a launch date on a real porkchop plot, build a rocket that can deliver your spacecraft, design the spacecraft, launch, fly the cruise, capture into Mars orbit, run science operations, and read a report that explains every outcome with physics. Every number on screen comes from real published data (NASA first), is computed from it, or is labelled "game balance".
 
 This branch (`vision-prototype`) is a **vision prototype**: it shows the team what a strong entry can look like. The 48-hour hackathon version will be a smaller rebuild (see [Hackathon cut-down](#hackathon-cut-down)).
 
@@ -52,11 +52,11 @@ Jump straight to any screen with the reference design and a fixed event seed, fo
 http://localhost:5173/?phase=cruise&preset=reference&seed=1
 ```
 
-- `phase`: `select`, `briefing`, `design`, `launch`, `cruise`, `arrival`, `ops`, `report`, `sources`. `cruise`, `arrival`, `ops` and `report` need `preset=reference`: the game autoplays the reference flight up to that point.
+- `phase`: `select`, `briefing`, `design`, `launch`, `cruise`, `arrival`, `ops`, `report`, `sources`. `launch`, `cruise`, `arrival`, `ops` and `report` need `preset=reference` (the default design does not pass the launch checklist); for the flight phases the game autoplays the reference flight up to that point. A phase that cannot be entered, or an unknown phase, falls back to mission select.
 - `preset=reference`: load the reference design (Atlas V 401-class rocket, 1,507 kg spacecraft, minimum-C3 transfer).
 - `seed=<int>`: fixes which flares happen and the launch injection error. Without it, every new game gets a fresh seed.
 
-Unknown values fall back to mission select without an error.
+Bad values never raise an error: only `phase` falls back to mission select; any other `preset` value means no preset, and a `seed` that is not an integer means a fresh seed.
 
 ### Refreshing the data
 
@@ -93,8 +93,16 @@ Engine and stage figures from manufacturers (ULA, SpaceX, Northrop Grumman, L3Ha
 ## Physics and validation
 
 - **Lambert solver** (single revolution, prograde, universal variables), unit-tested against Curtis, *Orbital Mechanics for Engineering Students*, Example 5.2.
-- **2026 window.** The best transfer the porkchop finds is **C3 9.18 km²/s²**, departing **31 Oct 2026** and arriving **20 Aug 2027** (293 days, arrival v∞ 2.71 km/s), in line with the real late-2026 Mars window. A test checks that the minimum falls inside that window (C3 7–14 km²/s², departure Oct–Dec 2026); the exact result is listed on the Data sources screen.
-- **Launch vehicles.** Capacity to a C3 is the largest payload for which the stack's Δv covers the ascent plus the departure burn (bisection). The three preset rockets with NASA LSP curves (Atlas V 401, Falcon Heavy expendable, Vulcan VC4) land within **±8 %** of every LSP point; the worst is −7.9 %.
+- **2026 window, validated against NASA.** The reference is the *Interplanetary Mission Design Handbook: Earth-to-Mars Mission Opportunities 2026 to 2045* (Burke, Falck, McGuire, NASA/TM-2010-216764, [NTRS 20100037210](https://ntrs.nasa.gov/citations/20100037210)), Table 2, p. 12 (ballistic transfers). `src/physics/porkchop.test.ts` checks the porkchop grid against it with a tolerance of ±0.3 km²/s² in C3, ±0.05 km/s in arrival v∞ and ±3 days on each date (our grid steps are 2 and 3 days, the handbook searched in 2-day steps):
+
+  | Minimum of | NASA handbook | This game (JPL Horizons DE441) |
+  |---|---|---|
+  | C3, Type II (the 2026 optimum) | 9.144 km²/s², 31 Oct 2026 → 19 Aug 2027 | **9.18 km²/s², 31 Oct 2026 → 20 Aug 2027** (293 d, v∞ 2.71 km/s) |
+  | C3, Type I | 11.11 km²/s², 14 Nov 2026 → 9 Aug 2027 | 10.91 km²/s², 14 Nov 2026 → 11 Aug 2027 |
+  | Arrival v∞, Type II | 2.565 km/s, 6 Nov 2026 → 8 Sep 2027 | 2.565 km/s, 6 Nov 2026 → 7 Sep 2027 |
+
+  The reference and our result are also on the Data sources screen.
+- **Launch vehicles.** Capacity to a C3 is the largest payload for which the stack's Δv covers the ascent plus the departure burn (bisection). The three preset rockets with NASA LSP curves (Atlas V 401, Falcon Heavy expendable, Vulcan VC4) match every LSP point to within −7.9 % (Falcon Heavy, worst case) and +6.6 % (Atlas V 401); the test asserts ±15 %.
 - **Spacecraft.** Capture burn from the arrival v∞ into a 300 × 33,000 km orbit, propellant from the rocket equation; solar power ∝ 1/r²; radio data rate ∝ 1/d² with one Deep Space Network pass per day; signal delay d/c; solar-conjunction blackout.
 
 How the game simplifies (also listed on the Data sources screen):
