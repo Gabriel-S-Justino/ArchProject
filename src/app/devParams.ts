@@ -31,6 +31,12 @@ export function parseDevParams(search: string): DevParams {
   }
 }
 
+/** Whether the search string fixes the seed (a valid integer `seed`): then a new game keeps it (R30). */
+export function hasSeedParam(search: string): boolean {
+  const seedText = new URLSearchParams(search).get('seed')
+  return seedText !== null && INT.test(seedText) && Number.isSafeInteger(Number(seedText))
+}
+
 export function copyRocket(r: RocketDesign): RocketDesign {
   return { ...r, stages: r.stages.map((st) => ({ ...st, tanks: [...st.tanks] })) }
 }
@@ -69,8 +75,9 @@ export type DevStartState = GameSnapshot & { phase: Phase; seed: number }
 /**
  * The game state the dev flags ask for (R23). `preset=reference` loads a deep copy of
  * REFERENCE_DESIGN and marks the earlier phases as done: cruise and arrival → launched; ops →
- * launched and arrived; report → a completed mission (launched, arrived, ops done). Cruise and ops
- * simulation state is not produced here (it stays null until Task 13 wires the simulation).
+ * launched and arrived; report → a completed mission (launched, arrived, ops done). The flight state
+ * itself (launch, cruise, arrival, ops, report) is played from these flags by the store's gameData
+ * with src/game/autoplay.ts.
  * Without a preset the default design is used and a phase it cannot enter falls back to select.
  */
 export function devStartState(params: DevParams): DevStartState {

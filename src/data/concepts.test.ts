@@ -17,6 +17,7 @@ function viewOf(design: MissionDesign) {
     opsDone: false,
     launch: null,
     cruise: null,
+    arrival: null,
     ops: null,
     result: null,
   }

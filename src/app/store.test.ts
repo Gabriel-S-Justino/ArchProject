@@ -220,6 +220,207 @@ describe('loadPorkchop', () => {
   })
 })
 
+describe('flight actions (Task 13)', () => {
+  const loadReference = () => {
+    const g = useGame.getState()
+    g.setTransfer(REFERENCE_DESIGN.transfer)
+    g.setRocket(REFERENCE_DESIGN.rocket)
+    g.setSpacecraft(REFERENCE_DESIGN.spacecraft)
+    useGame.setState({ seed: 1 })
+  }
+  const get = () => useGame.getState()
+  /** Warps until a decision is due or the arrival date, as time warp would. */
+  const warpToDecision = () => {
+    for (let i = 0; i < 20; i++) {
+      const stop = get().tickCruise(1e6)
+      if (stop === 'tcm' || stop === 'event' || stop === 'arrival') return stop
+    }
+    return null
+  }
+
+  it('startLaunch is refused until every check is go', () => {
+    expect(get().startLaunch()).toBe(false)
+    expect(get().launched).toBe(false)
+  })
+
+  it('plays the reference mission end to end through the actions', () => {
+    loadReference()
+    expect(get().startLaunch()).toBe(true)
+    expect(get()).toMatchObject({ phase: 'launch', launched: true, result: null })
+    expect(get().launch!.timeline.reachedDeparture).toBe(true)
+    expect(get().beginCruise()).toBe(true)
+    expect(get().phase).toBe('cruise')
+    expect(get().beginCruise()).toBe(false)
+
+    for (let i = 0; i < 30 && get().cruise!.sim.jd < get().cruise!.sim.arrJd; i++) {
+      const stop = warpToDecision()
+      if (stop === 'tcm') expect(get().burnTcm()).toBe(true)
+      if (stop === 'event') expect(get().resolveCruiseEvent('safe-mode')).toMatch(/safe mode/i)
+    }
+    const c = get().cruise!
+    expect(c.sim.jd).toBe(c.sim.arrJd)
+    expect(c.sim.tcms).toHaveLength(3)
+    expect(get().completeArrival()).toBe(true)
+    expect(get()).toMatchObject({ arrived: true, phase: 'cruise' })
+    expect(get().arrival!.captured).toBe(true)
+    expect(get().completeArrival()).toBe(false)
+    expect(get().setPhase('ops')).toBe(true)
+
+    for (let t = 0; t < 6; t++) {
+      expect(get().runOpsTurn({ instrumentsOn: [] })).toBe(true)
+    }
+    expect(get().opsDone).toBe(true)
+    expect(get().runOpsTurn({ instrumentsOn: [] })).toBe(false)
+    expect(get().finishMission()).toBe(true)
+    expect(get().phase).toBe('report')
+    const r = get().result!
+    expect(r.science).toBe(0) // nothing was switched on
+    expect(r.result.outcome).toBe('partial')
+    expect(r.dvLeftMs).toBeGreaterThan(0)
+  })
+
+  it('time stands still while a decision is pending; an invalid ops plan is refused', () => {
+    loadReference()
+    get().startLaunch()
+    get().beginCruise()
+    expect(warpToDecision()).toBe('tcm')
+    const jd = get().cruise!.sim.jd
+    expect(get().tickCruise(10)).toBeNull()
+    expect(get().cruise!.sim.jd).toBe(jd)
+    expect(get().resolveCruiseEvent('keep-observing')).toBeNull() // a TCM is due, not a flare
+    expect(get().skipTcm()).toBe(true)
+    expect(get().cruise!.decidedTcms).toEqual(['TCM-1'])
+  })
+
+  it('a launch against a no-go TWR fails on the pad and computes the report at once', async () => {
+    const { selectLaunchOverride, canEnterPhase } = await import('./store')
+    loadReference()
+    // An extra first-stage tank: the stack gets too heavy for its engine (liftoff TWR < 1.1).
+    const r = structuredClone(REFERENCE_DESIGN.rocket)
+    const s0 = r.stages[0]!
+    s0.tanks = [...s0.tanks, s0.tanks[0]!]
+    get().setRocket(r)
+    expect(selectCanLaunch(get())).toBe(false)
+    const noGo = selectLaunchOverride(get())!
+    expect(noGo.map((i) => i.id)).toContain('twr')
+    expect(get().startLaunch()).toBe(false)
+    expect(get().startLaunch({ override: true })).toBe(true)
+    expect(get()).toMatchObject({ phase: 'launch', launched: true })
+    expect(get().launch!.failure).toBe('pad')
+    expect(get().result!.result.outcome).toBe('failure')
+    expect(get().result!.lessons[0]!.id).toBe('pad')
+    expect(get().beginCruise()).toBe(false)
+    expect(canEnterPhase('cruise', get())).toBe(false)
+    expect(get().setPhase('report')).toBe(true)
+    expect(get().setPhase('launch')).toBe(true) // the launch screen stays open after the launch
+  })
+
+  it('"Launch anyway" is not offered when a non-rocket check fails', async () => {
+    const { selectLaunchOverride } = await import('./store')
+    loadReference()
+    get().setSpacecraft({ ...REFERENCE_DESIGN.spacecraft, parts: { 'sc-core': 1 } })
+    expect(selectLaunchOverride(get())).toBeNull()
+    expect(get().startLaunch({ override: true })).toBe(false)
+  })
+
+  it('skipping every TCM ends in a miss whose report is reachable', () => {
+    loadReference()
+    get().startLaunch()
+    get().beginCruise()
+    for (let i = 0; i < 30 && get().cruise!.sim.jd < get().cruise!.sim.arrJd; i++) {
+      const stop = warpToDecision()
+      if (stop === 'tcm') get().skipTcm()
+      if (stop === 'event') get().resolveCruiseEvent('keep-observing')
+    }
+    expect(get().completeArrival()).toBe(true)
+    expect(get().arrival).toMatchObject({ captured: false, reason: 'miss' })
+    expect(get().arrived).toBe(false)
+    expect(get().setPhase('ops')).toBe(false)
+    expect(get().result!.failureReason).toBe('miss')
+    expect(get().finishMission()).toBe(true)
+    expect(get().phase).toBe('report')
+  })
+
+  it('with zero propellant a TCM is refused, skipping works and the flight reaches the report (Review Focus 4)', () => {
+    loadReference()
+    get().startLaunch()
+    get().beginCruise()
+    const c = get().cruise!
+    useGame.setState({ cruise: { ...c, sim: { ...c.sim, propellantKg: 0 } } })
+    for (let i = 0; i < 30 && get().cruise!.sim.jd < get().cruise!.sim.arrJd; i++) {
+      const stop = warpToDecision()
+      if (stop === 'tcm') {
+        expect(get().burnTcm()).toBe(false)
+        expect(get().skipTcm()).toBe(true)
+      }
+      if (stop === 'event') {
+        expect(get().resolveCruiseEvent('shield-attitude')).toBeNull() // no propellant to turn
+        expect(get().resolveCruiseEvent('keep-observing')).not.toBeNull()
+      }
+    }
+    expect(get().completeArrival()).toBe(true)
+    expect(get().arrival!.captured).toBe(false)
+    expect(get().finishMission()).toBe(true)
+    expect(get().result!.result.outcome).not.toBe('success')
+  })
+
+  it('reviseDesign keeps the design and seed and discards the flight; a design edit after launch does too', () => {
+    loadReference()
+    get().startLaunch()
+    const design = get().design
+    get().reviseDesign()
+    expect(get()).toMatchObject({ phase: 'design', launched: false, launch: null, cruise: null, result: null, seed: 1 })
+    expect(get().design).toBe(design)
+
+    get().startLaunch()
+    get().beginCruise()
+    get().setSpacecraft({ ...REFERENCE_DESIGN.spacecraft, tcmReserveMs: 20 })
+    expect(get()).toMatchObject({ launched: false, cruise: null })
+  })
+
+  it('reset draws a fresh seed (R30)', () => {
+    const seeds = new Set<number>()
+    for (let i = 0; i < 5; i++) {
+      useGame.getState().reset()
+      seeds.add(useGame.getState().seed)
+    }
+    expect(seeds.size).toBeGreaterThan(1)
+  })
+})
+
+describe('dev jump plays the earlier phases (R23)', () => {
+  it('opens each later phase with real, deterministic state', async () => {
+    const { gameData } = await import('./store')
+    const { devStartState } = await import('./devParams')
+    const at = (phase: 'cruise' | 'arrival' | 'ops' | 'report') => gameData(devStartState({ phase, preset: 'reference', seed: 1 }))
+
+    const cruise = at('cruise')
+    expect(cruise.phase).toBe('cruise')
+    expect(cruise.cruise!.sim.jd).toBe(cruise.cruise!.sim.depJd)
+    expect(cruise.launch!.failure).toBeUndefined()
+
+    const arrival = at('arrival')
+    expect(arrival.phase).toBe('arrival')
+    expect(arrival.cruise!.sim.jd).toBe(arrival.cruise!.sim.arrJd)
+
+    const ops = at('ops')
+    expect(ops).toMatchObject({ phase: 'ops', arrived: true, opsDone: false })
+    expect(ops.ops!.turn).toBe(0)
+
+    const report = at('report')
+    expect(report).toMatchObject({ phase: 'report', opsDone: true })
+    expect(report.result!.result.stars).toBe(3)
+    expect(at('report')).toEqual(report)
+  })
+
+  it('without the preset the flight stays empty', async () => {
+    const { gameData } = await import('./store')
+    const { devStartState } = await import('./devParams')
+    const s = gameData(devStartState({ phase: 'design', preset: null, seed: 1 }))
+    expect(s).toMatchObject({ launch: null, cruise: null, arrival: null, ops: null, result: null })
+  })
+})
+
 describe('derived-value memos (Task 12)', () => {
   it('capacityKgFor caches per rocket object and C3, and a new rocket recomputes', async () => {
     const { capacityKgFor } = await import('./store')
