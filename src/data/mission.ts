@@ -18,6 +18,19 @@ export const ASCENT_DV = 9400
 export const GRAVITY_LOSS_K = 3000
 /** Liftoff TWR at which the ascent budget equals ASCENT_DV. */
 export const ASCENT_REFERENCE_TWR = 1.5
+/**
+ * Upper end of the TWR used in the gravity-loss term (game balance). Beyond ~2.5 real rockets gain
+ * little: drag, max-Q throttling and steering losses take over, so the ascent budget stops shrinking
+ * (without the clamp a TWR-8 stack would need only 7,776 m/s). The lower end is MISSION.minLiftoffTwr.
+ */
+export const GRAVITY_LOSS_MAX_TWR = 2.5
+/**
+ * Minimum ignition TWR of every upper stage (vacuum thrust over everything it lifts, payload
+ * included). Game balance: a long low-thrust burn on a suborbital or escape trajectory loses energy
+ * to gravity that the Δv budget does not model, so tiny-engine upper stages would otherwise win.
+ * Real upper stages ignite at 0.3–0.8 (Centaur V ≈ 0.3, Centaur ≈ 0.4, Falcon upper ≈ 0.8).
+ */
+export const UPPER_STAGE_MIN_TWR = 0.25
 
 export const MISSION = {
   id: 'red-watch',
@@ -36,6 +49,10 @@ export const MISSION = {
   minLiftoffTwr: 1.1,
   /** Ascent Δv budget at liftoff TWR 1.5, m/s (game balance; see GRAVITY_LOSS_K). */
   ascentDvMs: ASCENT_DV,
+  /** Gravity-loss coefficient of the ascent budget, m/s (game balance, LSP-calibrated). */
+  gravityLossKMs: GRAVITY_LOSS_K,
+  /** Minimum ignition TWR of upper stages (game balance). */
+  upperStageMinTwr: UPPER_STAGE_MIN_TWR,
   /** Launch margin rule: spacecraft wet mass ≤ launchMargin × rocket capacity at the chosen C3. */
   launchMargin: 0.9,
   /** Science operations: number of turns (game balance). */
@@ -57,6 +74,8 @@ export const MISSION_GAME_BALANCE: readonly (keyof typeof MISSION)[] = [
   'budgetM',
   'minLiftoffTwr',
   'ascentDvMs',
+  'gravityLossKMs',
+  'upperStageMinTwr',
   'opsTurns',
   'turnDays',
   'scienceTarget',

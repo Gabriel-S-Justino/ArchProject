@@ -242,15 +242,82 @@ describe('requiredDeltaV and capacityToC3', () => {
 
   it('requiredDeltaV decreases as liftoff TWR increases (gravity loss), Infinity without thrust', () => {
     let prev = Infinity
-    for (const twr of [0.5, 1, 1.1, 1.17, 1.3, 1.5, 1.6, 2, 3]) {
+    for (const twr of [1.1, 1.17, 1.3, 1.5, 1.6, 2, 2.5]) {
       const dv = requiredDeltaV(9.18, twr)
       expect(dv, `TWR ${twr}`).toBeLessThan(prev)
       prev = dv
     }
     // ASCENT_DV + K (1/TWR − 1/1.5) with K = 3000 m/s.
-    expect(ascentDeltaV(1)).toBeCloseTo(9400 + 3000 * (1 - 1 / 1.5), 9)
+    expect(ascentDeltaV(1.17)).toBeCloseTo(9400 + 3000 * (1 / 1.17 - 1 / 1.5), 9)
     expect(ascentDeltaV(1.5)).toBe(9400)
     for (const twr of [0, -1, NaN, Infinity]) expect(requiredDeltaV(9.18, twr), `TWR ${twr}`).toBe(Infinity)
+  })
+
+  it('R20: the gravity-loss TWR is clamped to [1.1, 2.5]', () => {
+    for (const c3 of [0, 9.18, 30]) {
+      expect(requiredDeltaV(c3, 5)).toBe(requiredDeltaV(c3, 2.5))
+      expect(requiredDeltaV(c3, 8)).toBe(requiredDeltaV(c3, 2.5))
+      expect(requiredDeltaV(c3, 0.5)).toBe(requiredDeltaV(c3, 1.1))
+    }
+    expect(ascentDeltaV(8)).toBeCloseTo(9400 + 3000 * (1 / 2.5 - 1 / 1.5), 9) // 8,600 m/s, not 7,776
+  })
+
+  it('a stack that cannot leave the pad (liftoff TWR < 1.1 even empty) has capacity 0 at every C3', () => {
+    const heavy: RocketDesign = {
+      stages: [
+        { tanks: ['tank-k381-ccb', 'tank-k381-ccb'], engineId: 'rd-180', engineCount: 1 },
+        { tanks: ['tank-h305-centaur'], engineId: 'rl10c-1', engineCount: 1 },
+      ],
+      fairing: 'large',
+    }
+    const s = rocketStats(heavy, 0)
+    expect(s.valid).toBe(true)
+    expect(s.liftoffTwr).toBeLessThan(MISSION.minLiftoffTwr)
+    for (let c3 = -5; c3 <= 40; c3 += 1) expect(capacityToC3(heavy, c3), `C3 ${c3}`).toBe(0)
+    expect(capacityToC3(heavy, 9.18)).toBe(0)
+  })
+
+  it('capacity stops where liftoff TWR would drop below 1.1', () => {
+    for (const p of PRESETS) {
+      for (const c3 of [-5, 0, 9.18]) {
+        const kg = capacityToC3(p.rocket, c3)
+        if (kg > 0) expect(rocketStats(p.rocket, kg).liftoffTwr, `${p.id} @ ${c3}`).toBeGreaterThanOrEqual(MISSION.minLiftoffTwr)
+      }
+    }
+  })
+
+  it('R19: a one-RL10 upper stage on a Falcon Heavy-class stack cannot beat the real upper stage', () => {
+    const real = preset('falcon-heavy-exp')
+    const weak = preset('falcon-heavy-exp')
+    weak.stages[1] = { tanks: ['tank-h305-centaur'], engineId: 'rl10c-1', engineCount: 1 }
+    expect(capacityToC3(weak, 9.18)).toBeLessThan(capacityToC3(real, 9.18))
+    // Upper stage with its payload must ignite at TWR ≥ 0.25.
+    const kg = capacityToC3(weak, 9.18)
+    if (kg > 0) expect(rocketStats(weak, kg).stages[1]!.twr).toBeGreaterThanOrEqual(0.25)
+  })
+
+  it('R19: an upper stage below TWR 0.25 even with no payload is a design error', () => {
+    const r: RocketDesign = {
+      stages: [
+        { tanks: ['tank-k37-falcon-core'], engineId: 'merlin-1d', engineCount: 9 },
+        { tanks: ['tank-h54-centaur-v'], engineId: 'rl10c-1', engineCount: 1 },
+      ],
+      fairing: 'small',
+    }
+    const s = rocketStats(r, 0)
+    expect(s.valid).toBe(false)
+    expect(s.errors.some((e) => /^Stage 2 thrust too low \(TWR 0\.\d\d < 0\.25\)$/.test(e))).toBe(true)
+    expectAllFinite(s, 'weak upper')
+    expect(capacityToC3(r, 9.18)).toBe(0)
+  })
+
+  it('R19: every preset upper stage ignites at TWR ≥ 0.25 at its capacity point', () => {
+    for (const p of PRESETS) {
+      for (const c3 of [0, 9.18, 30]) {
+        const s = rocketStats(p.rocket, capacityToC3(p.rocket, c3))
+        for (const st of s.stages.slice(1)) expect(st.twr, `${p.id} stage ${st.index + 1} @ ${c3}`).toBeGreaterThanOrEqual(0.25)
+      }
+    }
   })
 
   it('capacityToC3 decreases monotonically with C3 and is 0 (never NaN) for absurd C3', () => {
@@ -275,6 +342,7 @@ describe('requiredDeltaV and capacityToC3', () => {
     const over = rocketStats(r, kg + 2)
     expect(at.totalDv).toBeGreaterThanOrEqual(requiredDeltaV(10, at.liftoffTwr))
     expect(over.totalDv).toBeLessThan(requiredDeltaV(10, over.liftoffTwr))
+    expect(capacityToC3(r, 10)).toBe(kg)
   })
 
   it('validation: every LSP point within ±15% (no R3 fallback needed)', () => {
@@ -309,6 +377,7 @@ describe('presets', () => {
 
   it('reference preset lifts a ~1,500 kg spacecraft to the best transfer (C3 9.18) within 0.9 × capacity', () => {
     const r = preset('reference')
+    expect(capacityToC3(r, 9.18)).toBeGreaterThanOrEqual(1920)
     expect(1500).toBeLessThanOrEqual(0.9 * capacityToC3(r, 9.18))
     expect(rocketStats(r, 1500).liftoffTwr).toBeGreaterThanOrEqual(MISSION.minLiftoffTwr)
     expect(r).toEqual(preset('atlas-v-401')) // MAVEN's real rocket
@@ -386,6 +455,16 @@ describe('launchTimeline', () => {
     expect(tl.failure).toBe('dv')
     expect(tl.reachedOrbit).toBe(false)
     expect(tl.events.some((e) => e.kind === 'orbit')).toBe(false)
+  })
+
+  it('an upper stage too weak for the payload (TWR < 0.25) stops the flight → failure dv', () => {
+    const r = preset('falcon-heavy-exp')
+    r.stages[1] = { tanks: ['tank-h305-centaur'], engineId: 'rl10c-1', engineCount: 1 }
+    expect(rocketStats(r, 25_000).stages[1]!.twr).toBeLessThan(0.25)
+    const tl = launchTimeline(r, 25_000, 0)
+    expect(tl.reachedDeparture).toBe(false)
+    expect(tl.failure).toBe('dv')
+    expect(tl.events.some((e) => e.kind === 'departure-burn')).toBe(false)
   })
 
   it('an invalid stack never flies', () => {

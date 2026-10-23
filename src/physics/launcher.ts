@@ -6,7 +6,14 @@
 // (launcher.test.ts). Framework-free: no React, Three.js or DOM.
 import { boosterById } from '@/data/boosters'
 import { engineById } from '@/data/engines'
-import { ASCENT_DV, ASCENT_REFERENCE_TWR, GRAVITY_LOSS_K, MISSION } from '@/data/mission'
+import {
+  ASCENT_DV,
+  ASCENT_REFERENCE_TWR,
+  GRAVITY_LOSS_K,
+  GRAVITY_LOSS_MAX_TWR,
+  MISSION,
+  UPPER_STAGE_MIN_TWR,
+} from '@/data/mission'
 import { tankById } from '@/data/tanks'
 import type { BoosterPart, EnginePart, TankPart } from '@/game/types'
 import { G0, MU_EARTH, R_EARTH } from './constants'
@@ -86,17 +93,19 @@ export const MAX_BOOSTERS = 6
 /** Upper bound of the capacity bisection, kg. */
 export const MAX_PAYLOAD_KG = 200_000
 export const MIN_LIFTOFF_TWR = MISSION.minLiftoffTwr
+export { UPPER_STAGE_MIN_TWR }
 /** Parking-orbit radius the departure burn starts from, m. */
 export const PARKING_RADIUS_M = R_EARTH + MISSION.parkingAltitudeM
 
 /**
  * Ascent Δv budget to the parking orbit for a stack lifting off at `liftoffTwr` (with its payload):
- * ASCENT_DV + GRAVITY_LOSS_K × (1/TWR − 1/1.5). Lower TWR → longer vertical climb → more gravity
- * loss. Infinity (unreachable) for TWR ≤ 0 or non-finite TWR.
+ * ASCENT_DV + GRAVITY_LOSS_K × (1/TWR − 1/1.5), TWR clamped to [MIN_LIFTOFF_TWR, 2.5]. Lower TWR →
+ * longer vertical climb → more gravity loss. Infinity (unreachable) for TWR ≤ 0 or non-finite TWR.
  */
 export function ascentDeltaV(liftoffTwr: number): number {
   if (!(Number.isFinite(liftoffTwr) && liftoffTwr > 0)) return Infinity
-  return ASCENT_DV + GRAVITY_LOSS_K * (1 / liftoffTwr - 1 / ASCENT_REFERENCE_TWR)
+  const twr = Math.min(GRAVITY_LOSS_MAX_TWR, Math.max(MIN_LIFTOFF_TWR, liftoffTwr))
+  return ASCENT_DV + GRAVITY_LOSS_K * (1 / twr - 1 / ASCENT_REFERENCE_TWR)
 }
 
 /**
@@ -284,6 +293,13 @@ function analyse(r: RocketDesign, payloadKg: number): Analysis {
 
     const dv = segs.reduce((a, g) => a + deltaV(g.isp, g.m0, g.mf), 0)
     const twr = m0 > 0 ? (i === 0 ? core.thrustPad + (bp?.thrustPad ?? 0) : core.thrust) / (m0 * G0) : 0
+    if (i > 0 && s.n > 0 && e) {
+      // Even with no payload: an upper stage too weak to push what it carries is a design error.
+      const twrEmpty = core.thrust / ((m0 - payload) * G0)
+      if (twrEmpty < UPPER_STAGE_MIN_TWR) {
+        s.errors.push(`${s.label} thrust too low (TWR ${twrEmpty.toFixed(2)} < ${UPPER_STAGE_MIN_TWR})`)
+      }
+    }
     stats.push({
       index: i,
       m0: fin(m0),
@@ -323,16 +339,21 @@ export function rocketStats(r: RocketDesign, payloadKg: number): RocketStats {
 
 /**
  * Largest spacecraft mass (kg, 1 kg resolution, bisection over [0, 200,000]) the stack can send to
- * `c3` km²/s². 0 if the stack is invalid, the C3 is not finite, or it cannot get there even empty.
- * Liftoff TWR enters through the gravity-loss term of the ascent budget (heavier payload → lower
- * TWR → larger requirement, so the search stays monotonic); the minimum-TWR pad rule is a launch
- * check (launchTimeline, launch checklist), not part of capacity.
+ * `c3` km²/s². A payload counts only if, with it aboard, liftoff TWR ≥ MIN_LIFTOFF_TWR (the same pad
+ * rule launchTimeline applies), every upper stage ignites at TWR ≥ UPPER_STAGE_MIN_TWR, and the
+ * stack's Δv meets requiredDeltaV (whose gravity-loss term also depends on liftoff TWR). All three
+ * get harder as payload grows, so the bisection stays monotonic. 0 if the stack is invalid, the C3
+ * is not finite, or no payload (not even 0 kg) qualifies.
  */
 export function capacityToC3(r: RocketDesign, c3: number): number {
   if (!Number.isFinite(c3)) return 0
   const reaches = (kg: number) => {
     const s = rocketStats(r, kg)
-    return s.totalDv >= requiredDeltaV(c3, s.liftoffTwr)
+    return (
+      s.liftoffTwr >= MIN_LIFTOFF_TWR &&
+      upperStagesStrongEnough(s) &&
+      s.totalDv >= requiredDeltaV(c3, s.liftoffTwr)
+    )
   }
   if (!rocketStats(r, 0).valid || !reaches(0)) return 0
   if (reaches(MAX_PAYLOAD_KG)) return MAX_PAYLOAD_KG
@@ -346,6 +367,11 @@ export function capacityToC3(r: RocketDesign, c3: number): number {
   return Math.floor(lo)
 }
 
+/** Every stage above the first ignites at TWR ≥ UPPER_STAGE_MIN_TWR (with the payload). */
+function upperStagesStrongEnough(s: RocketStats): boolean {
+  return s.stages.every((st) => st.index === 0 || st.twr >= UPPER_STAGE_MIN_TWR)
+}
+
 /** Seconds into a constant-thrust burn at which `dv` m/s has been gained. */
 function timeForDv(g: Segment, dv: number): number {
   const mdot = (g.m0 - g.mf) / g.duration
@@ -355,8 +381,10 @@ function timeForDv(g: Segment, dv: number): number {
 /**
  * Launch events in real burn seconds (Task 14 compresses them for animation). 'orbit' is when the
  * stack has delivered its ascent budget (ascentDeltaV at its liftoff TWR); 'departure-burn' is when
- * the escape burn to `c3` is complete. Liftoff TWR < MISSION.minLiftoffTwr (or an invalid stack) → only 'liftoff', failure 'twr'. Out of Δv before orbit
- * → failure 'dv'; in orbit but short of the departure C3 → reachedOrbit true, failure 'dv'.
+ * the escape burn to `c3` is complete. Liftoff TWR < MISSION.minLiftoffTwr (or an invalid stack)
+ * → only 'liftoff', failure 'twr'. Out of Δv before orbit, or an upper stage igniting below
+ * UPPER_STAGE_MIN_TWR with this payload → the flight stops there, failure 'dv'; in orbit but short
+ * of the departure C3 → reachedOrbit true, failure 'dv'.
  */
 export function launchTimeline(r: RocketDesign, payloadKg: number, c3: number): LaunchTimeline {
   const { stats, segments } = analyse(r, payloadKg)
@@ -376,6 +404,8 @@ export function launchTimeline(r: RocketDesign, payloadKg: number, c3: number): 
   let reachedOrbit = false
   let fairingOff = false
   for (const g of segments) {
+    // An upper stage too weak for this payload cannot finish the job (same rule as capacityToC3).
+    if (g.stage > 0 && (stats.stages[g.stage]?.twr ?? 0) < UPPER_STAGE_MIN_TWR) break
     const gDv = deltaV(g.isp, g.m0, g.mf)
     if (!reachedOrbit && dv + gDv >= ascentDv) {
       const tOrbit = t + timeForDv(g, ascentDv - dv)
