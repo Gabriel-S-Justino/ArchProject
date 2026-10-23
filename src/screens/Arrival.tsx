@@ -7,7 +7,7 @@ import { ArrowRight } from 'lucide-react'
 import { useGame } from '@/app/store'
 import { ActionButton } from '@/components/ActionButton'
 import { Readout } from '@/components/Readout'
-import { distanceKm, formatNumber } from '@/components/status'
+import { distanceKm, formatDistanceKm, formatNumber } from '@/components/status'
 import { MISSION } from '@/data/mission'
 import { CAPTURE_MAX_MISS_KM, burnPropellantKg, predictArrival, type ArrivalResult } from '@/game/cruise'
 import { MU_MARS, R_MARS } from '@/physics/constants'
@@ -69,12 +69,13 @@ export function Arrival() {
             <Readout label="Arrival v∞" value={vInf} digits={2} unit="km/s" hint="Speed relative to Mars, far from it" />
             <Readout label="Capture burn" value={moiDv} unit="m/s" hint="Δv at periapsis (MOI)" />
             <Readout
-              label="Arrival-day distance"
-              // A near-perfect approach is still a real distance: never a bare 0.
+              label="Aim error"
+              // Corrections aim at Mars' centre (the capture burn then assumes a 300 km periapsis), so
+              // this is the distance from that aim point, not a flyby altitude. Never a bare 0.
               {...distanceKm(missKm)}
               unit="km"
               status={inReach ? 'ok' : 'bad'}
-              hint={`From Mars on ${formatJd(sim.arrJd)} · capture ≤ ${formatNumber(CAPTURE_MAX_MISS_KM)} km`}
+              hint={`From the aim point, Mars' centre, on ${formatJd(sim.arrJd)} · capture ≤ ${formatNumber(CAPTURE_MAX_MISS_KM)} km`}
             />
             <Readout
               label={arrival ? 'Propellant before → after' : 'Propellant needed'}
@@ -93,7 +94,7 @@ export function Arrival() {
                 {inReach && enough
                   ? 'The approach is inside the capture corridor and the tanks hold enough propellant for the burn.'
                   : !inReach
-                    ? `On the arrival date the spacecraft is ${formatNumber(missKm)} km from Mars' centre, outside the ${formatNumber(CAPTURE_MAX_MISS_KM)} km capture corridor: the burn cannot capture.`
+                    ? `On the arrival date the spacecraft is ${formatDistanceKm(missKm)} km from its aim point, Mars' centre, outside the ${formatNumber(CAPTURE_MAX_MISS_KM)} km capture corridor: the burn cannot capture.`
                     : `The burn needs ${formatNumber(needKg, 1)} kg of propellant and ${formatNumber(sim.propellantKg, 1)} kg is left.`}
               </p>
             )}
@@ -133,7 +134,7 @@ function Outcome({ arrival, needKg }: { arrival: ArrivalResult; needKg: number }
   }
   const why =
     arrival.reason === 'miss'
-      ? `On the arrival date the spacecraft was ${formatNumber(arrival.missKm)} km from Mars' centre, outside the ${formatNumber(CAPTURE_MAX_MISS_KM)} km capture corridor: no burn could stop it there.`
+      ? `On the arrival date the spacecraft was ${formatDistanceKm(arrival.missKm)} km from its aim point, Mars' centre, outside the ${formatNumber(CAPTURE_MAX_MISS_KM)} km capture corridor: no burn could stop it there.`
       : `The capture burn needed ${formatNumber(needKg, 1)} kg of propellant and only ${formatNumber(arrival.propellantLeftKg, 1)} kg was left.`
   return (
     <div className="border-t border-nogo pt-2">

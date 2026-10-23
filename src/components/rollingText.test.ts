@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ROLL_MS, shouldRoll } from './RollingText'
-import { distanceKm } from './status'
+import { distanceKm, formatDistanceKm } from './status'
 
 describe('shouldRoll', () => {
   it('rolls a change that comes after the previous roll has finished', () => {
@@ -25,5 +25,12 @@ describe('distanceKm', () => {
     expect(distanceKm(3.26)).toEqual({ value: 3.26, digits: 1 })
     expect(distanceKm(114394)).toEqual({ value: 114394, digits: 0 })
     expect(distanceKm(Number.NaN).digits).toBe(0)
+  })
+
+  it('reads the same in running text', () => {
+    expect(formatDistanceKm(0.004)).toBe('< 0.1')
+    expect(formatDistanceKm(3.26)).toBe('3.3')
+    expect(formatDistanceKm(114394)).toBe('114,394')
+    expect(formatDistanceKm(Number.POSITIVE_INFINITY)).toBe('–')
   })
 })

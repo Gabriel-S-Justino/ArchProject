@@ -114,13 +114,15 @@ function DesignRail({ onOpenTab }: { onOpenTab: (t: DesignTab) => void }) {
   const rocket = useRocketStats()
   const startLaunch = useGame((s) => s.startLaunch)
   const launched = useGame((s) => s.launched)
+  // A flight that reached its report is over: launching again replaces a result, not a flight.
+  const finished = useGame((s) => s.result !== null)
   const design = useGame((s) => s.design)
   const override = useMemo(() => selectLaunchOverride({ design }), [design])
   const [confirming, setConfirming] = useState(false)
-  // Launching again while this design is flying starts the flight over: ask first.
-  const [restart, setRestart] = useState<{ override: boolean } | null>(null)
+  // Launching again while this design is flying (or after it flew) starts the flight over: ask first.
+  const [restart, setRestart] = useState<{ override: boolean; finished: boolean } | null>(null)
   const launch = (override: boolean) => {
-    if (launched) setRestart({ override })
+    if (launched) setRestart({ override, finished })
     else startLaunch(override ? { override: true } : undefined)
   }
   const noGo = checklist.filter((i) => !i.ok).length
@@ -178,7 +180,10 @@ function DesignRail({ onOpenTab }: { onOpenTab: (t: DesignTab) => void }) {
       <div className="flex flex-col gap-2 border-t border-rule pt-4 pb-6">
         {launched && (
           <p className="text-detail text-caution">
-            <span className="label-caps">Caution</span> This design is flying. Any change scrubs the flight and starts again from the pad.
+            <span className="label-caps">Caution</span>{' '}
+            {finished
+              ? 'This design has flown. Any change clears the result and starts again from the pad.'
+              : 'This design is flying. Any change scrubs the flight and starts again from the pad.'}
           </p>
         )}
         <ActionButton disabled={!canLaunch} onClick={() => launch(false)} icon={<ArrowRight aria-hidden />} className="w-full justify-between">
@@ -216,15 +221,17 @@ function DesignRail({ onOpenTab }: { onOpenTab: (t: DesignTab) => void }) {
       <ConfirmDialog
         open={restart !== null}
         onOpenChange={(open) => !open && setRestart(null)}
-        title="Restart the mission?"
-        confirm="Restart from the pad"
-        cancel="Keep flying"
+        title={restart?.finished ? 'Start a new flight?' : 'Restart the mission?'}
+        confirm={restart?.finished ? 'Start a new flight' : 'Restart from the pad'}
+        cancel={restart?.finished ? 'Cancel' : 'Keep flying'}
         onConfirm={() => {
           startLaunch(restart?.override ? { override: true } : undefined)
           setRestart(null)
         }}
       >
-        This design is already flying. Launching again starts a new flight from the pad: your flight so far will be lost.
+        {restart?.finished
+          ? 'Launching again flies this design from the pad. Your previous result will be replaced.'
+          : 'This design is already flying. Launching again starts a new flight from the pad: your flight so far will be lost.'}
       </ConfirmDialog>
     </aside>
   )

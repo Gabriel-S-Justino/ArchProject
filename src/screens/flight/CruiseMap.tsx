@@ -4,7 +4,7 @@
 // sit at their real positions on the current mission date. AimTarget zooms into Mars on the arrival
 // date: where the ship will be if nothing changes.
 import { memo, useMemo } from 'react'
-import { formatNumber } from '@/components/status'
+import { formatDistanceKm, formatNumber } from '@/components/status'
 import { CAPTURE_MAX_MISS_KM, type CruiseState } from '@/game/cruise'
 import { AU, DAY, MU_SUN, R_MARS } from '@/physics/constants'
 import { bodyState } from '@/physics/ephemeris'
@@ -158,7 +158,7 @@ export function AimTarget({ sim, className }: { sim: CruiseState; className?: st
       data-label-avoid
       className={className}
       role="img"
-      aria-label={`On the arrival date the spacecraft will be ${formatNumber(missKm)} km from Mars' centre; capture needs ${formatNumber(CAPTURE_MAX_MISS_KM)} km or less.`}
+      aria-label={`Aim error: on the arrival date the spacecraft will be ${formatDistanceKm(missKm)} km from its aim point, Mars' centre; capture needs ${formatNumber(CAPTURE_MAX_MISS_KM)} km or less.`}
     >
       {[4, 5, 6].map((lg) => (
         <circle key={lg} r={rOf(10 ** lg, R)} fill="none" stroke="var(--rule)" strokeWidth={0.5} />

@@ -9,7 +9,7 @@ import { useGame, useTransfer } from '@/app/store'
 import { ActionButton } from '@/components/ActionButton'
 import { DecisionCard } from '@/components/DecisionCard'
 import { Readout } from '@/components/Readout'
-import { distanceKm, formatNumber } from '@/components/status'
+import { distanceKm, formatDistanceKm, formatNumber } from '@/components/status'
 import { Timeline, type TimelineEvent } from '@/components/Timeline'
 import { TimeWarp, type WarpRate } from '@/components/TimeWarp'
 import { MISSION } from '@/data/mission'
@@ -153,11 +153,12 @@ function CruiseFlight({ cruise, transfer }: { cruise: CruiseProgress; transfer: 
         <div className="flex min-w-0 flex-col gap-6">
           <div className="grid grid-cols-2 gap-x-6 gap-y-4">
             <Readout
-              label="Arrival-day distance"
+              label="Aim error"
+              // Distance from the aim point (Mars' centre) on the arrival date, not a flyby altitude.
               {...distanceKm(Number.isFinite(predicted.missKm) ? predicted.missKm : NaN)}
               unit="km"
               status={inReach ? 'ok' : 'bad'}
-              hint={`From Mars on ${formatJd(sim.arrJd)} · capture ≤ ${formatNumber(CAPTURE_MAX_MISS_KM)} km`}
+              hint={`From the aim point, Mars' centre, on ${formatJd(sim.arrJd)} · capture ≤ ${formatNumber(CAPTURE_MAX_MISS_KM)} km`}
             />
             <Readout label="Propellant" value={sim.propellantKg} digits={1} unit="kg" status={canBrake ? 'ok' : 'bad'} hint={`Capture burn needs ${formatNumber(moiKg, 1)} kg`} />
             <Readout label="Arrival v∞" value={predicted.vInfKms} digits={2} unit="km/s" hint={`Capture Δv ${formatNumber(moiDv)} m/s`} />
@@ -236,7 +237,7 @@ function TcmPrompt({ cruise, id }: { cruise: CruiseProgress; id: string }) {
         {id}: trajectory correction window
       </h2>
       <p className="mt-1 text-detail text-ink-2">
-        The launch left a small velocity error. A burn now re-aims the arc at Mars' position on the arrival date; the earlier the
+        The launch left a small velocity error. A burn now re-aims the arc at Mars' centre on the arrival date; the earlier the
         correction, the less it costs.{later ? ` Another window opens on ${formatJd(later.jd)}, and it may still be needed.` : ' This is the last window.'}
       </p>
       <dl className="mt-3">
@@ -250,18 +251,18 @@ function TcmPrompt({ cruise, id }: { cruise: CruiseProgress; id: string }) {
           )}
         </Fact>
         <Fact label="If you wait">
-          {formatNumber(wait.missKm)} km from Mars on {formatJd(sim.arrJd)}
+          aim error {formatDistanceKm(wait.missKm)} km on {formatJd(sim.arrJd)}
         </Fact>
         {after && (
           <Fact label="After the burn">
-            {formatNumber(after.missKm)} km from Mars on {formatJd(sim.arrJd)}
+            aim error {formatDistanceKm(after.missKm)} km on {formatJd(sim.arrJd)}
           </Fact>
         )}
         <Fact label="Propellant">
           {formatNumber(sim.propellantKg, 1)} kg on board{quote.available ? `, ${formatNumber(sim.propellantKg - quote.propellantKg, 1)} kg after` : ''}
         </Fact>
       </dl>
-      <p className="mt-2 text-detail text-ink-3">Capture needs {formatNumber(CAPTURE_MAX_MISS_KM)} km or closer.</p>
+      <p className="mt-2 text-detail text-ink-3">Capture needs an aim error of {formatNumber(CAPTURE_MAX_MISS_KM)} km or less (the aim point is Mars' centre).</p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <ActionButton disabled={!quote.available} aria-describedby={!quote.available ? reasonId : undefined} onClick={() => burnTcm()}>
           Burn now

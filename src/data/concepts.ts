@@ -588,5 +588,6 @@ export const SIMPLIFICATIONS: string[] = [
   `The ascent from the pad is not flown. Reaching the 200 km parking orbit costs a Δv budget of ${fmt(ASCENT_DV)} m/s at liftoff TWR ${fmt(ASCENT_REFERENCE_TWR, 1)}, plus ${fmt(GRAVITY_LOSS_K)} × (1/TWR − 1/${fmt(ASCENT_REFERENCE_TWR, 1)}) m/s of gravity losses (game balance, calibrated against NASA Launch Services Program payload curves).`,
   `Every upper stage must ignite at a thrust-to-weight of at least ${fmt(UPPER_STAGE_MIN_TWR, 2)} (game balance), standing in for the gravity losses of long, weak burns.`,
   `Radio data rate falls as 1/d² from each antenna’s rate at 1 AU, with one ${fmt(DSN_CONTACT_HOURS_PER_DAY)}-hour Deep Space Network pass per day (game balance).`,
+  `Course corrections aim at Mars' centre; the capture burn assumes a ${fmt(MISSION.capturePeriapsisAltM / 1000)} km periapsis.`,
   `Part prices, science points, flare effects and the US$ ${fmt(MISSION.budgetM)} M budget are game balance. Physical constants, planet positions, engine specs and launch-vehicle curves are real.`,
 ]

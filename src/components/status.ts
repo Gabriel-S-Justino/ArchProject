@@ -38,6 +38,12 @@ export function distanceKm(km: number): { value: number | string; digits: number
   return { value: km, digits: Number.isFinite(km) && km < 10 ? 1 : 0 }
 }
 
+/** The same distance as running text ("< 0.1", "3.3", "114,394"); "–" when there is none. */
+export function formatDistanceKm(km: number): string {
+  const d = distanceKm(km)
+  return typeof d.value === 'string' ? d.value : formatNumber(d.value, d.digits)
+}
+
 /** en-US number with `digits` decimals and thousands separators; "–" for NaN/±Infinity. */
 export function formatNumber(x: number, digits = 0): string {
   if (!Number.isFinite(x)) return '–'
