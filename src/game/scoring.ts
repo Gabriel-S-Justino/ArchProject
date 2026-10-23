@@ -37,8 +37,8 @@ export interface ScoreInput {
 const num = (x: number) => (Number.isFinite(x) ? x : 0)
 
 /**
- * outcome: success if captured and science ≥ MISSION.scienceTarget; partial if captured or any
- * science; else failure.
+ * outcome: success if captured and science ≥ MISSION.scienceTarget; partial if captured below the
+ * target; failure if not captured, whatever the cruise science (R36, spec §4.9: a flyby is a failure).
  * score  = science × (1 + 0.5 × budgetShare) × 1.5 + dvLeft / 100 − 5 × safeModeDays / 10,
  *          rounded, ≥ 0; 0 on failure. budgetShare = max(0, budgetLeft) / MISSION.budgetM.
  * stars  = failure 0, partial 1, success 3 with ≥ 20% of the budget left, else 2.
@@ -48,7 +48,7 @@ export function scoreMission(input: ScoreInput): MissionResult {
   const budgetLeft = Math.max(0, num(input.budgetLeftM))
   const share = MISSION.budgetM > 0 ? Math.min(1, budgetLeft / MISSION.budgetM) : 0
   const outcome: MissionResult['outcome'] =
-    input.captured && science >= MISSION.scienceTarget ? 'success' : input.captured || science > 0 ? 'partial' : 'failure'
+    !input.captured ? 'failure' : science >= MISSION.scienceTarget ? 'success' : 'partial'
   const raw =
     science * (1 + share * 0.5) * SCORE_DIFFICULTY_MULTIPLIER +
     Math.max(0, num(input.dvLeftMs)) / 100 -

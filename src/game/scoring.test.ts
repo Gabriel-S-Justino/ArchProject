@@ -24,13 +24,21 @@ describe('scoreMission (legacy formula, safeTurns → safeModeDays / 10)', () =>
     expect(a - b).toBe(5)
   })
 
-  it('captured below target, or science without capture: partial, 1 star', () => {
+  it('captured below target: partial, 1 star', () => {
     expect(scoreMission({ ...base, science: 50 })).toMatchObject({ outcome: 'partial', stars: 1 })
-    expect(scoreMission({ ...base, captured: false, science: 4, failureReason: 'miss' })).toMatchObject({
-      outcome: 'partial',
-      stars: 1,
-      failureReason: 'miss',
-    })
+    expect(scoreMission({ ...base, science: 0 })).toMatchObject({ outcome: 'partial', stars: 1 })
+  })
+
+  it('not captured is a failure even with cruise science (R36): 0 points, 0 stars, with the reason', () => {
+    for (const failureReason of ['miss', 'propellant'] as const) {
+      expect(scoreMission({ ...base, captured: false, science: 4, failureReason })).toEqual({
+        outcome: 'failure',
+        score: 0,
+        stars: 0,
+        failureReason,
+      })
+    }
+    expect(scoreMission({ ...base, captured: false, science: 500 })).toEqual({ outcome: 'failure', score: 0, stars: 0 })
   })
 
   it('nothing achieved: failure, 0 points, 0 stars, with the reason', () => {

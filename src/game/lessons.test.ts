@@ -55,6 +55,27 @@ describe('lessons', () => {
     expect(t).toContain('123,456 km')
   })
 
+  it('flyby with cruise science: a failure (R36), never "partial", but the cruise science is told', () => {
+    const launch = launchTimeline(REFERENCE_DESIGN.rocket, wetKg(REFERENCE_DESIGN), transfer.c3)
+    const cruise = { ...startCruise(REFERENCE_DESIGN, 7), cruiseScience: 4.5 }
+    const arrival: ArrivalResult = {
+      captured: false,
+      reason: 'miss',
+      vInfKms: 2.6,
+      moiDvMs: 900,
+      missKm: 123_456,
+      propellantLeftKg: cruise.propellantKg,
+    }
+    const result = scoreMission({ captured: false, science: 4.5, budgetLeftM: 100, dvLeftMs: 0, safeModeDays: 0, failureReason: 'miss' })
+    expect(result).toMatchObject({ outcome: 'failure', score: 0, stars: 0 })
+    const ls = lessons({ design: REFERENCE_DESIGN, launch, cruise, arrival, ops: null, result })
+    const ids = ls.map((l) => l.id)
+    expect(ids).not.toContain('partial')
+    expect(ids).toContain('cruise-science')
+    expect(text(ls)).not.toMatch(/partial/i)
+    expect(text(ls)).toContain('4.5 science points from the cruise')
+  })
+
   it('success: picks only relevant lessons, with real numbers', () => {
     const launch = launchTimeline(REFERENCE_DESIGN.rocket, wetKg(REFERENCE_DESIGN), transfer.c3)
     const start = startCruise(REFERENCE_DESIGN, 7)

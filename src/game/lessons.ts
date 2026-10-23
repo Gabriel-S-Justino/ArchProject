@@ -230,9 +230,16 @@ export function lessons(history: MissionHistory): Lesson[] {
     out.push({
       id: 'partial',
       title: 'Partial success',
-      text: arrival?.captured
-        ? `${fmt(science, 1)} of ${fmt(MISSION.scienceTarget)} science points reached Earth. More instruments, more power or a faster link would close the gap.`
-        : `The spacecraft never entered Mars orbit, but ${fmt(science, 1)} science points from the cruise reached Earth.`,
+      text: `${fmt(science, 1)} of ${fmt(MISSION.scienceTarget)} science points reached Earth. More instruments, more power or a faster link would close the gap.`,
+    })
+  } else if (arrival && !arrival.captured && science > 0) {
+    // A flyby is a failure (R36), but the cruise observations it sent home are still real.
+    out.push({
+      id: 'cruise-science',
+      title: 'Cruise science only',
+      text:
+        `${fmt(science, 1)} science points from the cruise reached Earth before the flyby. ` +
+        `An orbiter that never enters Mars orbit fails its mission, so the score is 0.`,
     })
   }
 
