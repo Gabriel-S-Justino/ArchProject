@@ -1,7 +1,8 @@
 // Cruise: the flight from Earth to Mars along the Lambert arc. Time warp runs the two-body
 // simulation and stops by itself at each trajectory correction window, at each solar flare (real
 // NASA DONKI events) and 3 days before arrival. Each stop is a decision: burn or wait, and how to
-// ride out the flare. The large slot is the cruise view (2D here; Task 15 mounts the 3D scene).
+// ride out the flare. The large slot is the 3D cruise view (planets and ship on the mission clock,
+// the flown arc, the predicted path, flare hits); the 2D map stands in without WebGL.
 import { ArrowRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGame, useTransfer } from '@/app/store'
@@ -22,6 +23,9 @@ import { captureBurn } from '@/physics/orbit'
 import type { Transfer } from '@/physics/porkchop'
 import { formatJd } from '@/physics/time'
 import { norm, sub } from '@/physics/vec'
+import { SolarSystemView } from '@/scenes/SceneSlot'
+import type { Focus, ShipView } from '@/scenes/SolarSystem'
+import { useWebGL2 } from '@/scenes/webgl'
 import { GameBalance } from './design/controls'
 import { AimTarget, CruiseMap } from './flight/CruiseMap'
 import { Fact, NoFlight, Plate, PlateActions, PlateTitle } from './flight/plate'
@@ -55,6 +59,8 @@ function CruiseFlight({ cruise, transfer }: { cruise: CruiseProgress; transfer: 
   const setPhase = useGame((s) => s.setPhase)
   const [rate, setRate] = useState<WarpRate>(0)
   const [notice, setNotice] = useState<string | null>(null)
+  const [focus, setFocus] = useState<Focus>('sun')
+  const gl = useWebGL2()
 
   const sim = cruise.sim
   const pending = pendingDecision(cruise)
@@ -76,6 +82,16 @@ function CruiseFlight({ cruise, transfer }: { cruise: CruiseProgress; transfer: 
   useEffect(() => {
     if (pendingKey) decisionRef.current?.scrollIntoView({ block: 'nearest' })
   }, [pendingKey])
+
+  // The 3D view: a flare reaching the ship plays its hit once (keyed by the event) and centres on it.
+  const flareKey = pending?.kind === 'event' ? pending.event.id : null
+  useEffect(() => {
+    if (flareKey) setFocus('ship')
+  }, [flareKey])
+  const shipView = useMemo<ShipView>(
+    () => ({ state: sim.ship, depJd: sim.depJd, arrJd: sim.arrJd, design: design.spacecraft, damaged: sim.damaged, flareKey }),
+    [sim.ship, sim.depJd, sim.arrJd, design.spacecraft, sim.damaged, flareKey],
+  )
 
   const lockedReason = pending
     ? `Decide first: ${pending.kind === 'tcm' ? pending.id : `the ${pending.event.flare.classType} flare`}.`
@@ -107,12 +123,20 @@ function CruiseFlight({ cruise, transfer }: { cruise: CruiseProgress; transfer: 
             data-slot="cruise-3d"
             className="relative aspect-square max-h-[min(36rem,calc(100dvh-15rem))] w-full border border-rule bg-ground-sunken"
           >
-            <CruiseMap sim={sim} transfer={transfer} />
+            <SolarSystemView
+              jd={sim.jd}
+              transfer={transfer}
+              ship={shipView}
+              focus={focus}
+              onFocusChange={setFocus}
+              reserveBottomRight
+              fallback={<CruiseMap sim={sim} transfer={transfer} />}
+            />
             <AimTarget sim={sim} className="absolute right-2 bottom-2 w-[clamp(9rem,30%,12rem)] border border-rule bg-ground-sunken" />
           </div>
           <p className="text-detail text-ink-3">
-            Positions from JPL Horizons ephemerides; the ship flies a two-body orbit around the Sun (patched conics). Dashed rust: where
-            the ship goes if nothing changes.
+            Positions from JPL Horizons ephemerides; the ship flies a two-body orbit around the Sun (patched conics). Solid rust: flown;
+            dashed rust: where the ship goes if nothing changes{gl ? '; dashed grey: the planned transfer. Drag to turn the view' : ''}.
           </p>
         </div>
 

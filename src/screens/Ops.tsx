@@ -16,11 +16,14 @@ import type { MissionDesign } from '@/game/checklist'
 import { opsPlanLimits, sunEarthMarsAngleDeg, turnJd, type OpsState, type OpsTurnReport } from '@/game/ops'
 import { BATTERY_COVER_HOURS, spacecraftStats } from '@/game/spacecraft'
 import { cn } from '@/lib/utils'
-import { AU } from '@/physics/constants'
+import { AU, MU_MARS, R_MARS } from '@/physics/constants'
 import { EPHEMERIS_RANGE, bodyState } from '@/physics/ephemeris'
 import { dataRateMbps, dataVolumeGb, signalDelayS, solarConjunction } from '@/physics/link'
+import { period } from '@/physics/orbit'
 import { formatJd } from '@/physics/time'
 import { norm, sub } from '@/physics/vec'
+import { MarsArrivalView } from '@/scenes/SceneSlot'
+import { useWebGL2 } from '@/scenes/webgl'
 import { GameBalance } from './design/controls'
 import { NoFlight, Plate, PlateActions, PlateTitle } from './flight/plate'
 
@@ -95,6 +98,7 @@ export function Ops() {
           {!over && <ScienceGauges ops={ops} />}
           <DataChart ops={ops} />
           <LastNotes turn={ops.turns[ops.turns.length - 1]} />
+          <OrbitView design={design} damaged={damaged ?? NO_DAMAGE} />
         </div>
       </div>
 
@@ -106,6 +110,36 @@ export function Ops() {
         </PlateActions>
       )}
     </Plate>
+  )
+}
+
+const ORBIT_HOURS = period(MU_MARS, R_MARS + (MISSION.capturePeriapsisAltM + MISSION.captureApoapsisAltM) / 2) / 3600
+
+/** The spacecraft in its capture orbit, to scale around Mars (3D only: without WebGL nothing shows). */
+function OrbitView({ design, damaged }: { design: MissionDesign; damaged: string[] }) {
+  const arrival = useGame((s) => s.arrival)
+  const gl = useWebGL2()
+  if (!gl) return null
+  return (
+    <figure className="flex flex-col gap-2">
+      <div data-slot="ops-3d" className="relative aspect-[16/9] w-full overflow-hidden border border-rule bg-ground-sunken">
+        <MarsArrivalView
+          mode="orbit"
+          // The orbit view draws only the capture ellipse; v∞ and the miss distance shape the
+          // (hidden) approach hyperbola, so a stand-in is harmless when no arrival is recorded.
+          vInfKms={arrival?.vInfKms ?? 2.6}
+          missKm={arrival?.missKm ?? 0}
+          captured
+          design={design.spacecraft}
+          damaged={damaged}
+          fallback={null}
+        />
+      </div>
+      <figcaption className="text-detail text-ink-3">
+        Your spacecraft in its {formatNumber(MISSION.capturePeriapsisAltM / 1000)} × {formatNumber(MISSION.captureApoapsisAltM / 1000)} km
+        orbit, to scale (the spacecraft enlarged); one orbit takes {formatNumber(ORBIT_HOURS, 1)} h, here compressed to about 22 s.
+      </figcaption>
+    </figure>
   )
 }
 

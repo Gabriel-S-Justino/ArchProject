@@ -1,7 +1,8 @@
 // Arrival: Mars orbit insertion. Before the burn the screen shows the approach (v∞, distance from
 // Mars on the arrival date, the capture burn and the propellant it takes); the player fires it; the
 // result is a capture into the 300 × 33,000 km orbit or a flyby with its reason. The large slot is
-// the arrival view (2D here: the approach hyperbola and the capture ellipse to scale).
+// the 3D arrival view (approach hyperbola, capture burn, the orbit traced out, to scale around Mars);
+// the 2D drawing of the same conics stands in without WebGL.
 import { ArrowRight } from 'lucide-react'
 import { useGame } from '@/app/store'
 import { ActionButton } from '@/components/ActionButton'
@@ -12,6 +13,7 @@ import { CAPTURE_MAX_MISS_KM, burnPropellantKg, predictArrival, type ArrivalResu
 import { MU_MARS, R_MARS } from '@/physics/constants'
 import { captureBurn } from '@/physics/orbit'
 import { formatJd } from '@/physics/time'
+import { MarsArrivalView } from '@/scenes/SceneSlot'
 import { NoFlight, Plate, PlateActions, PlateTitle } from './flight/plate'
 
 const RP = R_MARS + MISSION.capturePeriapsisAltM
@@ -22,6 +24,7 @@ export function Arrival() {
   const arrival = useGame((s) => s.arrival)
   const completeArrival = useGame((s) => s.completeArrival)
   const setPhase = useGame((s) => s.setPhase)
+  const spacecraft = useGame((s) => s.design.spacecraft)
   if (!cruise || cruise.sim.jd < cruise.sim.arrJd) {
     return <NoFlight title="Mars orbit insertion" line="The spacecraft has not reached Mars yet." action="Back to the cruise" onAction={() => setPhase('cruise')} />
   }
@@ -47,8 +50,16 @@ export function Arrival() {
       />
 
       <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(21rem,1fr)]">
-        <div data-slot="arrival-3d" className="relative aspect-square max-h-[min(34rem,calc(100dvh-15rem))] w-full border border-rule bg-ground-sunken">
-          <ApproachDiagram vInfKms={vInf} captured={arrival ? arrival.captured : null} missKm={missKm} />
+        <div data-slot="arrival-3d" className="relative overflow-hidden aspect-square max-h-[min(34rem,calc(100dvh-15rem))] w-full border border-rule bg-ground-sunken">
+          <MarsArrivalView
+            vInfKms={vInf}
+            missKm={missKm}
+            captured={arrival ? arrival.captured : null}
+            reason={arrival?.reason}
+            design={spacecraft}
+            damaged={sim.damaged}
+            fallback={<ApproachDiagram vInfKms={vInf} captured={arrival ? arrival.captured : null} missKm={missKm} />}
+          />
         </div>
 
         <div className="flex min-w-0 flex-col gap-6">

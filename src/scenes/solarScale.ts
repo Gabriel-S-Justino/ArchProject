@@ -23,9 +23,9 @@ const REAL_RADIUS_M = { sun: 695_700e3, earth: R_EARTH, mars: R_MARS }
 
 /**
  * Drawn radii, scene units. Not to scale: at 1 AU = 100 units the Earth would be 0.004 units wide,
- * so the planets are enlarged a few hundred times (the Sun about ten times) to be seen at all.
+ * so the planets are enlarged a few hundred times (the Sun about thirteen times) to be seen at all.
  */
-export const DISPLAY_RADIUS = { sun: 4.4, earth: 1.5, mars: 1.15 } as const
+export const DISPLAY_RADIUS = { sun: 6, earth: 1.5, mars: 1.15 } as const
 
 /** How many times larger than real each body is drawn. */
 export function exaggeration(body: keyof typeof DISPLAY_RADIUS): number {

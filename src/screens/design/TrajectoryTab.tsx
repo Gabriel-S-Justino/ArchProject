@@ -1,7 +1,7 @@
 // Trajectory: the porkchop plot of the late-2026 window and what the chosen cell means for the
 // rest of the design (launch energy for the rocket, arrival speed for the spacecraft's brake burn).
 import { AlertTriangle, LocateFixed, RotateCw } from 'lucide-react'
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useCapacityKg, useGame, useSpacecraftStats, useTransfer } from '@/app/store'
 import { PorkchopLegend, PorkchopPlot } from '@/components/PorkchopPlot'
 import { Readout } from '@/components/Readout'
@@ -9,6 +9,10 @@ import { formatNumber } from '@/components/status'
 import { MISSION } from '@/data/mission'
 import { DEFAULT_PORKCHOP, transferFor } from '@/physics/porkchop'
 import { formatJd } from '@/physics/time'
+import { SolarSystemView } from '@/scenes/SceneSlot'
+import type { Focus } from '@/scenes/SolarSystem'
+import { useWebGL2 } from '@/scenes/webgl'
+import { TransferMap } from '../flight/CruiseMap'
 import { TextButton } from './controls'
 
 /** Cells of the default grid (same arithmetic as computePorkchop), for the loading message. */
@@ -76,18 +80,57 @@ export function TrajectoryTab() {
           <p className="text-detail text-ink-3">Computed in your browser on JPL Horizons ephemerides.</p>
         </PlotMessage>
       ) : (
-        <figure className="flex flex-col gap-3">
-          <PorkchopLegend grid={grid} />
-          <PorkchopPlot grid={grid} selected={selected} onHover={setHoverTransfer} onSelect={setTransfer} />
-          <figcaption className="text-detail text-ink-3">
-            Earth → Mars, late-2026 window. Flight times {grid.spec.minTofDays}–{grid.spec.maxTofDays} days; empty cells
-            have no transfer. Arrow keys move the crosshair when the plot has focus, Enter chooses.
-          </figcaption>
-        </figure>
+        <div className="@container">
+          <div className="grid items-start gap-x-8 gap-y-6 @5xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+            <figure className="flex min-w-0 flex-col gap-3">
+              <PorkchopLegend grid={grid} />
+              <PorkchopPlot grid={grid} selected={selected} onHover={setHoverTransfer} onSelect={setTransfer} />
+              <figcaption className="text-detail text-ink-3">
+                Earth → Mars, late-2026 window. Flight times {grid.spec.minTofDays}–{grid.spec.maxTofDays} days; empty cells
+                have no transfer. Arrow keys move the crosshair when the plot has focus, Enter chooses.
+              </figcaption>
+            </figure>
+            <TrajectoryPreview />
+          </div>
+        </div>
       )}
 
       <TransferReadouts />
     </div>
+  )
+}
+
+/**
+ * The transfer in space: the arc under the pointer (dashed) or the chosen one (solid rust), with the
+ * planets on its launch date. Beside the plot on a wide tab, under it on a narrow one.
+ */
+function TrajectoryPreview() {
+  const preview = useGame((s) => s.hoverTransfer)
+  const transfer = useTransfer()
+  const gl = useWebGL2()
+  const [focus, setFocus] = useState<Focus>('sun')
+  const shown = preview ?? transfer
+  const jd = shown?.depJd ?? DEFAULT_PORKCHOP.depStartJd
+  const caption = shown ? `Launch ${formatJd(shown.depJd)} (${preview && preview !== transfer ? 'hovered' : 'chosen'})` : `Planets on ${formatJd(jd)}`
+  return (
+    <aside aria-label="Transfer in space" className="@5xl:sticky @5xl:top-6">
+      <div data-slot="trajectory-3d" className="relative aspect-[16/10] w-full overflow-hidden border border-rule bg-ground-sunken @5xl:aspect-square">
+        <SolarSystemView
+          jd={jd}
+          transfer={transfer}
+          preview={preview}
+          focus={focus}
+          onFocusChange={setFocus}
+          caption={caption}
+          fallback={<TransferMap transfer={shown} />}
+        />
+      </div>
+      <p className="mt-2 text-detail text-ink-3">
+        {gl
+          ? 'Hover the plot: the dashed arc is that cell’s transfer, sampled from its Lambert solution; the solid rust arc is your choice. Drag to turn.'
+          : 'Top-down, to scale: the transfer under the pointer, or your choice.'}
+      </p>
+    </aside>
   )
 }
 

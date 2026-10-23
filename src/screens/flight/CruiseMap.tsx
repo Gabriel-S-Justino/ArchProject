@@ -99,6 +99,27 @@ export function CruiseMap({ sim, transfer }: { sim: CruiseState; transfer: Trans
   )
 }
 
+/**
+ * The 2D stand-in for the trajectory tab's 3D preview: the transfer under the pointer (or the chosen
+ * one) with Earth and Mars on its departure date and Mars on its arrival date.
+ */
+export function TransferMap({ transfer }: { transfer: Transfer | null }) {
+  if (!transfer) {
+    return <p className="absolute inset-0 grid place-items-center px-6 text-center text-detail text-ink-3">Hover the porkchop plot to draw a transfer here.</p>
+  }
+  const earth = bodyState('earth', transfer.depJd).r
+  const mars = bodyState('mars', transfer.depJd).r
+  const P = (r: Vec3) => ({ cx: (r[0] / AU) * U, cy: (-r[1] / AU) * U })
+  return (
+    <svg viewBox="-172 -172 344 344" className="h-full w-full" role="img" aria-label={`Top-down view of the ${formatNumber(transfer.tofDays)}-day transfer from ${formatJd(transfer.depJd)} to ${formatJd(transfer.arrJd)}.`}>
+      <Backdrop transfer={transfer} />
+      <circle {...P(transfer.r2)} r={5} fill="none" stroke="var(--ink-3)" strokeWidth={0.6} strokeDasharray="1.5 1.5" />
+      <circle {...P(earth)} r={3.4} fill="var(--ink-2)" />
+      <circle {...P(mars)} r={2.9} fill="var(--ink)" />
+    </svg>
+  )
+}
+
 /** Where the ship will be relative to Mars on the arrival date (km), in the plane across the approach. */
 export function arrivalOffsetKm(sim: CruiseState): { x: number; y: number; missKm: number } {
   const s = propagate(sim.ship, MU_SUN, Math.max(0, sim.arrJd - sim.jd) * DAY)

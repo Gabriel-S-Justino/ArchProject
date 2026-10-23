@@ -150,6 +150,8 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
   const [still, setStill] = useState<number | null>(null)
   const clock = useRef(reduced ? schedule.endA : 0)
   const raf = useRef(0)
+  // A Skip pressed before the 3D view's first frame stands: the clock must not restart when it arrives.
+  const skipped = useRef(false)
   useEffect(() => {
     cancelAnimationFrame(raf.current)
     if (reduced) {
@@ -157,6 +159,7 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
       setA(Infinity)
       return
     }
+    if (skipped.current) return
     clock.current = 0
     setA(0)
     if (!ready) return
@@ -180,6 +183,7 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
   }, [reduced, still, schedule])
   const onSceneReady = useCallback(() => setReady(true), [])
   const skip = () => {
+    skipped.current = true
     cancelAnimationFrame(raf.current)
     clock.current = schedule.endA
     setA(Infinity)
@@ -246,7 +250,14 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
               spent={spent}
               required={required}
               failed={done && failure !== undefined}
-              onReplay={reduced ? undefined : () => setRun((r) => r + 1)}
+              onReplay={
+                reduced
+                  ? undefined
+                  : () => {
+                      skipped.current = false
+                      setRun((r) => r + 1)
+                    }
+              }
               onSkip={done ? undefined : skip}
             />
           </div>

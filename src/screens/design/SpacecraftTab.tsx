@@ -1,6 +1,6 @@
 // Spacecraft: parts by subsystem, one orbit-insertion propulsion system and its trajectory-correction
-// reserve, with live mass, propellant, power, data and cost. The right column holds the slot the 3D
-// spacecraft model mounts into (Task 15: data-slot="spacecraft-3d"); a plan sketch stands in.
+// reserve, with live mass, propellant, power, data and cost. The right column holds the 3D model of
+// the spacecraft (data-slot="spacecraft-3d", lazy-loaded); the plan sketch stands in without WebGL.
 import { Slider as SliderPrimitive } from 'radix-ui'
 import { useId, useMemo, type ReactNode } from 'react'
 import { useGame, useSpacecraftStats, useTransfer } from '@/app/store'
@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils'
 import { dataRateMbps } from '@/physics/link'
 import { propellantFor } from '@/physics/rocket'
 import { formatJd } from '@/physics/time'
+import { SpacecraftModelView } from '@/scenes/SceneSlot'
+import { useWebGL2 } from '@/scenes/webgl'
 import { ErrorList, GameBalance, SectionHeading, Stepper } from './controls'
 import {
   CATEGORIES,
@@ -36,6 +38,7 @@ export function SpacecraftTab() {
   const setSpacecraft = useGame((s) => s.setSpacecraft)
   const sc = useSpacecraftStats()
   const transfer = useTransfer()
+  const gl = useWebGL2()
   const edit = (f: (d: SpacecraftDesign) => SpacecraftDesign) => setSpacecraft(f(design))
 
   const power = powerVerdict(design, sc)
@@ -44,7 +47,7 @@ export function SpacecraftTab() {
   const rateAtArrival = transfer ? dataRateMbps(sc.rateMbpsAt1AU, earthDistAU) : Number.NaN
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="@container flex flex-col gap-10">
       <header className="max-w-[62ch]">
         <h2 className="text-title font-semibold [font-stretch:88%]">Design the spacecraft</h2>
         <p className="mt-1 text-small text-ink-2">
@@ -120,8 +123,8 @@ export function SpacecraftTab() {
         )}
       </section>
 
-      <div className="grid gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="flex min-w-0 flex-col gap-10">
+      <div className="grid gap-x-10 gap-y-8 @4xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-10 @4xl:col-start-1 @4xl:row-start-1">
           {CATEGORIES.filter((c) => c.id !== 'propulsion').map((c) => (
             <section key={c.id} aria-labelledby={`sc-${c.id}`}>
               <SectionHeading id={`sc-${c.id}`} aside={categoryAside(design, c.id)}>
@@ -139,13 +142,22 @@ export function SpacecraftTab() {
           <ErrorList errors={sc.errors} />
         </div>
 
-        <aside aria-label="Spacecraft view" className="xl:sticky xl:top-6 xl:self-start">
-          <div data-slot="spacecraft-3d" className="relative mx-auto aspect-square w-full max-w-[26rem] border border-rule bg-ground-sunken">
-            <div className="absolute inset-0 p-5">
-              <SpacecraftSketch design={design} loadW={sc.powerLoadW} />
-            </div>
+        <aside aria-label="Spacecraft view" className="order-first @4xl:order-none @4xl:sticky @4xl:top-6 @4xl:col-start-2 @4xl:row-start-1 @4xl:self-start">
+          <div data-slot="spacecraft-3d" className="relative aspect-[16/10] max-h-[24rem] w-full overflow-hidden border border-rule bg-ground-sunken @4xl:aspect-square @4xl:max-h-none">
+            <SpacecraftModelView
+              design={design}
+              fallback={
+                <div className="absolute inset-0 p-5">
+                  <SpacecraftSketch design={design} loadW={sc.powerLoadW} />
+                </div>
+              }
+            />
           </div>
-          <p className="mt-2 text-detail text-ink-3">Plan view sketch: arrays and dish drawn to their relative size.</p>
+          <p className="mt-2 text-detail text-ink-3">
+            {gl
+              ? 'Built from your parts: wing area follows the arrays’ power, the dish is the 3 m high-gain class. Generic shapes, no real spacecraft. Drag to turn.'
+              : 'Plan view sketch: arrays and dish drawn to their relative size.'}
+          </p>
         </aside>
       </div>
     </div>
