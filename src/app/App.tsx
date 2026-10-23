@@ -3,13 +3,16 @@ import { useEffect, useRef } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { Phase } from '@/game/flow'
+import { Briefing } from '@/screens/Briefing'
+import { DesignWorkspace } from '@/screens/design/DesignWorkspace'
+import { MissionSelect } from '@/screens/MissionSelect'
 import { PhasePlaceholder } from '@/screens/PhasePlaceholder'
 import { Sources } from '@/screens/Sources'
 import { useGame } from './store'
 
 /**
  * The app: the shell plus one screen per phase. Screens that do not exist yet render a placeholder
- * plate; Tasks 12–15 swap them in here.
+ * plate; Tasks 13–15 swap them in here.
  */
 export default function App() {
   const phase = useGame((s) => s.phase)
@@ -21,8 +24,18 @@ export default function App() {
   }, [phase])
 
   const renderScreen = (p: Phase) => {
-    if (p === 'sources') return <Sources backTo={lastPhase.current} onBack={() => setPhase(lastPhase.current)} />
-    return <PhasePlaceholder phase={p} />
+    switch (p) {
+      case 'sources':
+        return <Sources backTo={lastPhase.current} onBack={() => setPhase(lastPhase.current)} />
+      case 'select':
+        return <MissionSelect />
+      case 'briefing':
+        return <Briefing />
+      case 'design':
+        return <DesignWorkspace />
+      default:
+        return <PhasePlaceholder phase={p} />
+    }
   }
 
   return (

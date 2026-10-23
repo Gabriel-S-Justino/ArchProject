@@ -220,3 +220,13 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Indeterminate progress: a short ink segment sweeping a hairline (porkchop worker). */
+@keyframes porkchop-scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
