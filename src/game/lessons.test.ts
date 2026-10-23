@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { jdFromIso } from '@/physics/time'
 import { MISSION } from '@/data/mission'
 import { launchTimeline, rocketStats } from '@/physics/launcher'
 import { transferFor } from '@/physics/porkchop'
@@ -135,5 +136,41 @@ describe('lessons: operations limits', () => {
     const l = lessons({ design: rtg, launch, cruise: null, arrival, ops, result }).find((x) => x.id === 'power-limited')
     expect(l?.text).toMatch(/RTG/)
     expect(l?.text).toContain('left 0 W for instruments') // 110 W RTG + 385 W battery < 600 W of other loads
+  })
+})
+
+describe('lessons: data-limited across the 2028 solar conjunction', () => {
+  it('quotes the farthest turn whose link was up, never a 0 Gbit blackout turn', () => {
+    // Ops ending on the 21 Mar 2028 conjunction (0.81°): Earth–Mars distance grows every turn, so
+    // the blackout turn 6 is the farthest one, with 0 Gbit of capacity.
+    const launch = launchTimeline(REFERENCE_DESIGN.rocket, wetKg(REFERENCE_DESIGN), transfer.c3)
+    const arrival: ArrivalResult = { captured: true, vInfKms: 2.6, moiDvMs: 900, missKm: 3000, propellantLeftKg: 40 }
+    let ops = startOps(jdFromIso('2028-03-21T00:00:00Z') - 5 * MISSION.turnDays)
+    while (ops.turn < MISSION.opsTurns) {
+      ops = runOpsTurn(ops, REFERENCE_DESIGN, [], { instrumentsOn: opsPlanLimits(ops, REFERENCE_DESIGN, []).available })
+    }
+    const conj = ops.turns.find((t) => t.conjunction)!
+    expect(conj.earthMarsAU).toBe(Math.max(...ops.turns.map((t) => t.earthMarsAU)))
+    const up = ops.turns.filter((t) => !t.conjunction)
+    const far = up.reduce((a, t) => (t.earthMarsAU > a.earthMarsAU ? t : a))
+    const result = scoreMission({ captured: true, science: ops.delivered, budgetLeftM: 100, dvLeftMs: 50, safeModeDays: 0 })
+    const l = lessons({ design: REFERENCE_DESIGN, launch, cruise: null, arrival, ops, result }).find((x) => x.id === 'data-limited')
+    expect(l).toBeDefined()
+    expect(l!.text).not.toContain(' 0.0 Gbit per turn')
+    expect(l!.text).toContain(`${far.earthMarsAU.toFixed(2)} AU`)
+    expect(l!.text).toContain(`${far.downlinkCapacityGb.toFixed(1)} Gbit per turn`)
+  })
+
+  it('no working link at all: no data-limited lesson', () => {
+    const mute: MissionDesign = {
+      ...REFERENCE_DESIGN,
+      spacecraft: { ...REFERENCE_DESIGN.spacecraft, parts: { ...REFERENCE_DESIGN.spacecraft.parts, 'comms-hga': 0, 'comms-lga': 0 } },
+    }
+    const launch = launchTimeline(mute.rocket, wetKg(mute), transfer.c3)
+    let ops = startOps(transfer.arrJd)
+    while (ops.turn < MISSION.opsTurns) ops = runOpsTurn(ops, mute, [], { instrumentsOn: opsPlanLimits(ops, mute, []).available })
+    expect(ops.dataLostGb).toBeGreaterThan(0)
+    const result = scoreMission({ captured: true, science: 0, budgetLeftM: 100, dvLeftMs: 50, safeModeDays: 0 })
+    expect(lessons({ design: mute, launch, cruise: null, arrival: null, ops, result }).map((x) => x.id)).not.toContain('data-limited')
   })
 })

@@ -137,6 +137,45 @@ describe('runOpsTurn', () => {
     expect(small.turns.some((t) => t.dataLostGb > 0 && /lost/i.test(t.notes.join(' ')))).toBe(true)
   })
 
+  // R28: storage overflow costs delivered science when the link later has spare capacity for the
+  // backlog. While the link is the bottleneck every turn (as on the reference run), each stored
+  // Gbit carries the same science, so overflow only drops data that would never have gone down.
+  // A solar conjunction is where storage pays off: the blackout turn's observations wait on board
+  // and go down afterwards. Ops start 30 days before the 21 Mar 2028 conjunction, so turn 2 is the
+  // blackout (the only conjunction inside the ephemeris range).
+  const smallSsr = { 'storage-ssr': 0, 'storage-ssr-small': 1 } // 32 + 40 Gbit vs 160 + 40 Gbit
+  const runFrom = (d: typeof REFERENCE_DESIGN, startJd: number, plan: (turn: number, available: string[]) => string[]) => {
+    let state = startOps(startJd)
+    while (state.turn < MISSION.opsTurns) {
+      const { available } = opsPlanLimits(state, d, [])
+      state = runOpsTurn(state, d, [], { instrumentsOn: plan(state.turn, available) })
+    }
+    return state
+  }
+
+  it('R28: across a conjunction a small recorder loses science a large one keeps (high-gain, catch-up turn)', () => {
+    const start = conjunctionJd() - MISSION.turnDays
+    // Everything on, except the turn after the blackout, spent downlinking the backlog.
+    const plan = (turn: number, available: string[]) => (turn === 2 ? [] : available)
+    const large = runFrom(REFERENCE_DESIGN, start, plan)
+    const small = runFrom(withParts(smallSsr), start, plan)
+    expect(large.turns[1]!.conjunction).toBe(true)
+    expect(small.turns[1]!.dataLostGb).toBeGreaterThan(large.turns[1]!.dataLostGb)
+    expect(small.turns[1]!.notes.join(' ')).toMatch(/lost/i)
+    expect(small.delivered).toBeLessThan(large.delivered - 1)
+  })
+
+  it('R28: with a laser terminal and every instrument on, the small recorder delivers less', () => {
+    const start = conjunctionJd() - MISSION.turnDays
+    const all = (_turn: number, available: string[]) => available
+    const large = runFrom(withParts({ 'comms-optical': 1 }), start, all)
+    const small = runFrom(withParts({ 'comms-optical': 1, ...smallSsr }), start, all)
+    expect(large.dataLostGb).toBe(0)
+    expect(large.delivered).toBeCloseTo(large.collected, 9)
+    expect(small.dataLostGb).toBeGreaterThan(0)
+    expect(small.delivered).toBeLessThan(large.delivered - 1)
+  })
+
   it('downlinks nothing during a solar conjunction and keeps the data on board', () => {
     const jd = conjunctionJd()
     expect(sunEarthMarsAngleDeg(jd)).toBeLessThan(3)

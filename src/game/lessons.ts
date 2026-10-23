@@ -171,9 +171,12 @@ export function lessons(history: MissionHistory): Lesson[] {
     }
 
     const linkLimited = ops.turns.filter((t) => !t.conjunction && t.downlinkCapacityGb > 0 && t.storedGb > 1e-9)
-    if (linkLimited.length > 0 || ops.dataLostGb > 0) {
-      const far = ops.turns.reduce((m, t) => Math.max(m, t.earthMarsAU), 0)
-      const farTurn = ops.turns.find((t) => t.earthMarsAU === far)!
+    // Quote only turns whose link was up: Mars is farthest at conjunction, where nothing goes down
+    // (the conjunction lesson covers those turns). No working link at all → no lesson.
+    const linkUp = ops.turns.filter((t) => !t.conjunction && t.downlinkCapacityGb > 0)
+    if ((linkLimited.length > 0 || ops.dataLostGb > 0) && linkUp.length > 0) {
+      const farTurn = linkUp.reduce((a, t) => (t.earthMarsAU > a.earthMarsAU ? t : a))
+      const far = farTurn.earthMarsAU
       out.push({
         id: 'data-limited',
         title: 'Science limited by the radio link',
