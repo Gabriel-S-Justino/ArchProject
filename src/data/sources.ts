@@ -5,6 +5,16 @@ import { DONKI_META } from './donki'
 
 const READ = '2026-10-22'
 
+const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six']
+
+/** States the real DONKI coverage (archived ~30-day windows), never a full year. */
+function donkiTitle(): string {
+  const w = DONKI_META.windows
+  const n = COUNT_WORDS[w.length] ?? String(w.length)
+  const spans = w.map((x) => `${x.start} → ${x.end}`).join(', ')
+  return `Solar flares (M and X class) from ${n} archived ~30-day DONKI window${w.length === 1 ? '' : 's'} (${spans}; partial 2024 coverage): ${DONKI_META.count} events`
+}
+
 export const DATA_SOURCES: DataSource[] = [
   // Trajectory
   {
@@ -35,7 +45,7 @@ export const DATA_SOURCES: DataSource[] = [
   // Space weather
   {
     id: 'donki',
-    title: `Solar flares (M and X class), ${DONKI_META.range.start} → ${DONKI_META.range.end}: ${DONKI_META.count} events`,
+    title: donkiTitle(),
     provider: DONKI_META.source,
     url: 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/',
     fetched: DONKI_META.fetched,

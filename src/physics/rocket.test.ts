@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { G0 } from './constants'
-import { deltaV, propellantFor } from './rocket'
+import { deltaV, propellantFor, propellantFromMass } from './rocket'
 
 describe('rocket', () => {
   it('applies the Tsiolkovsky equation', () => {
@@ -29,5 +29,15 @@ describe('rocket', () => {
     expect(propellantFor(0, 320, 1000)).toBe(0)
     expect(propellantFor(-5, 320, 1000)).toBe(0)
     expect(propellantFor(100, 0, 1000)).toBe(Infinity)
+  })
+
+  it('propellantFromMass burns from the current total mass and agrees with deltaV', () => {
+    const kg = propellantFromMass(100, 230, 1500)
+    expect(deltaV(230, 1500, 1500 - kg)).toBeCloseTo(100, 9)
+    expect(kg).toBeCloseTo(1500 * (1 - Math.exp(-100 / (230 * G0))), 9)
+    expect(propellantFromMass(0, 230, 1500)).toBe(0)
+    expect(propellantFromMass(NaN, 230, 1500)).toBe(0)
+    expect(propellantFromMass(10, 0, 1500)).toBe(Infinity)
+    expect(propellantFromMass(Infinity, 230, 1500)).toBe(Infinity)
   })
 })

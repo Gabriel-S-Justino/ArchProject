@@ -134,6 +134,8 @@ async function main() {
     source,
     url,
     fetched: localDate(),
+    // The date filter applied, not the coverage: Wayback snapshots cover only ~30-day windows.
+    // src/data/donki.ts derives the real coverage windows from the flares.
     range: { start: START, end: END },
     filter: 'classType M or X',
     count: flares.length,

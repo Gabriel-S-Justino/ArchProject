@@ -330,4 +330,19 @@ describe('mission, real missions, DONKI', () => {
     expect(ids.size).toBe(DONKI_FLARES.length)
     expect(DONKI_FLARES.some((f) => f.classType.startsWith('X'))).toBe(true)
   })
+
+  it('DONKI provenance states the real coverage: three ~30-day windows of 2024, not a full year', () => {
+    expect(DONKI_META.windows).toEqual([
+      { start: '2024-05-16', end: '2024-06-15', count: 68 },
+      { start: '2024-10-29', end: '2024-11-27', count: 101 },
+      { start: '2024-12-15', end: '2024-12-31', count: 72 },
+    ])
+    expect(DONKI_META.range).toEqual({ start: '2024-05-16', end: '2024-12-31' })
+    const sum = DONKI_META.windows.reduce((n, w) => n + w.count, 0)
+    expect(sum).toBe(DONKI_FLARES.length)
+    const src = DATA_SOURCES.find((s) => s.id === 'donki')!
+    expect(src.title).not.toMatch(/2024-01-01/)
+    for (const w of DONKI_META.windows) expect(src.title).toContain(`${w.start} → ${w.end}`)
+    expect(src.title).toMatch(/three/i)
+  })
 })
