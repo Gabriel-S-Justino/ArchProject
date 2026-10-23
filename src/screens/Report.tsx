@@ -50,7 +50,7 @@ function ReportPlate({ report }: { report: MissionReport }) {
   const arrival = useGame((s) => s.arrival)
   const ops = useGame((s) => s.ops)
   const { result } = report
-  // A flight that never reached Mars orbit is titled by what stopped it, even when cruise science scores a partial.
+  // A flight that never reached Mars orbit is a failure (R36), titled by what stopped it.
   const title = report.failureReason
     ? (FAILURE_TITLE[report.failureReason] ?? 'Mission lost')
     : result.outcome === 'success'
@@ -59,7 +59,7 @@ function ReportPlate({ report }: { report: MissionReport }) {
         ? 'Partial success'
         : 'Mission lost'
   const line = report.failureReason
-    ? `${result.outcome === 'partial' ? `Partial success: ${formatNumber(report.science, 1)} cruise science points reached Earth. ` : ''}The report traces what went wrong to the physics and to the design.`
+    ? `${report.science > 0 ? `${formatNumber(report.science, 1)} cruise science points reached Earth, but the mission failed. ` : ''}The report traces what went wrong to the physics and to the design.`
     : `${formatNumber(report.science, 1)} science points reached Earth against a target of ${formatNumber(MISSION.scienceTarget)}.`
 
   return (
@@ -137,7 +137,7 @@ function ReportPlate({ report }: { report: MissionReport }) {
 
       <PlateActions>
         <ActionButton onClick={() => reset()} icon={<ArrowRight aria-hidden />}>
-          Fly again
+          New mission
         </ActionButton>
         <ActionButton tone="quiet" onClick={() => reviseDesign()}>
           <ArrowLeft aria-hidden className="size-4" />
@@ -145,8 +145,8 @@ function ReportPlate({ report }: { report: MissionReport }) {
         </ActionButton>
         <p className="text-detail text-ink-3">
           {SEED_FIXED
-            ? 'Fly again starts a new mission with the same events (the page address fixes the seed); Revise design keeps this design and these events.'
-            : 'Fly again starts a new mission with new events; Revise design keeps this design and these events.'}
+            ? 'New mission returns to mission select with the starting design and the same events (the page address fixes the seed); Revise design keeps this design and these events.'
+            : 'New mission returns to mission select with the starting design and new events; Revise design keeps this design and these events.'}
         </p>
       </PlateActions>
     </Plate>
