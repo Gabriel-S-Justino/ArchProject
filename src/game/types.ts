@@ -30,13 +30,15 @@ export interface TankPart {
   diameterM: number
   lengthM: number
   propellantKg: number
-  /** Structure (tank, intertank, thrust structure share). dryKg / propellantKg is game balance within real ranges. */
+  /** Structure (tank, intertank, thrust structure share). Generic tanks: dryKg / propellantKg is game balance within real ranges; reference tanks: real stage dry mass minus engines. */
   dryKg: number
   /** Game balance, US$ M. */
   costM: number
   /** What the size and dry mass are based on. */
   source: string
   url?: string
+  /** Set on tanks that reproduce a real stage: the PRESET_REFERENCE id whose structure they match. */
+  referenceStageId?: string
 }
 
 export interface BoosterPart {

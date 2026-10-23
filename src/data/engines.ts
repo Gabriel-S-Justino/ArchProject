@@ -96,13 +96,13 @@ export const ENGINES: EnginePart[] = [
     name: 'BE-4',
     propellant: 'methalox',
     thrustSL: 2_446_500,
-    thrustVac: 2_600_000,
-    ispSL: 320,
+    thrustVac: 2_650_000,
+    ispSL: 310,
     ispVac: 340,
     massKg: 5_400,
     costM: 18,
     source:
-      'SL thrust 550,000 lbf (2,446.5 kN): ULA BE-4 fact sheet; Isp 320 s SL / 340 s vac: Wikipedia “Vulcan Centaur” first-stage data. Vac thrust 2,600 kN: estimate: SL thrust × Isp ratio (340/320). Mass 5,400 kg: estimate: secondary source (unofficial). Cost: game balance.',
+      'SL thrust 550,000 lbf (2,446.5 kN): ULA BE-4 fact sheet. Isp 340 s: estimate: the ULA fact sheet quotes ~340 s without saying SL or vacuum; treated as vacuum. SL Isp 310 s: estimate: no primary source (Wikipedia “Vulcan Centaur” lists 320 s, not traced to a primary source); ~310 s is the research best value for a staged-combustion methalox engine at sea level. Vac thrust 2,650 kN: estimate: research best value (≈ SL thrust × Isp ratio 340/310 = 2,683 kN). Mass 5,400 kg: estimate: secondary source (unofficial). Cost: game balance.',
     url: 'https://www.ulalaunch.com/docs/default-source/news-items/be-4_fact_sheet_web_final_2.pdf',
   },
 ]

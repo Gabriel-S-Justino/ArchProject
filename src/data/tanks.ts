@@ -1,6 +1,8 @@
 // Propellant tanks for the modular launcher. Tank sizes are game parts sized after real stages
-// (see `source` and presetReference.ts); dry/propellant fractions are game balance inside real
-// ranges (kerolox 0.05–0.07, hydrolox 0.10–0.12, methalox 0.06–0.08). Lengths are the
+// (see `source` and presetReference.ts). Generic tanks use game-balance dry/propellant fractions
+// inside real ranges (kerolox 0.05–0.07, hydrolox 0.10–0.12, methalox 0.06–0.08). Reference tanks
+// (with `referenceStageId`) instead carry the real structure of that stage — its published dry mass
+// minus its engines — so presets can reproduce the LSP vehicles (test: within 5%). Lengths are the
 // cylinder-equivalent length of the propellant volume at the bulk mixture density below
 // (no domes, engine bay or interstage). Costs are game balance (US$ M).
 import type { TankPart } from '@/game/types'
@@ -31,6 +33,10 @@ const LABEL: Record<LiquidPropellant, string> = {
   methalox: 'Methalox',
 }
 
+const AVUG_URL = 'https://www.ulalaunch.com/docs/default-source/rockets/atlasvusersguide2010.pdf'
+const FH_URL = 'https://en.wikipedia.org/wiki/Falcon_Heavy'
+const VULCAN_URL = 'https://en.wikipedia.org/wiki/Vulcan_Centaur'
+
 const round1 = (x: number) => Math.round(x * 10) / 10
 
 function tank(
@@ -41,7 +47,7 @@ function tank(
   propellantKg: number,
   dry: { fraction: number } | { kg: number },
   source: string,
-  url?: string,
+  extra: { url?: string; referenceStageId?: string } = {},
 ): TankPart {
   const area = Math.PI * (diameterM / 2) ** 2
   const dryKg = 'kg' in dry ? dry.kg : Math.round(propellantKg * dry.fraction)
@@ -55,7 +61,7 @@ function tank(
     dryKg,
     costM: round1(COST[propellant].base + (COST[propellant].perTonne * propellantKg) / 1000),
     source,
-    ...(url ? { url } : {}),
+    ...extra,
   }
 }
 
@@ -84,9 +90,8 @@ function family(
 }
 
 export const TANKS: TankPart[] = [
-  // 3.7 m: Falcon-class structure. L = one Falcon Heavy core's propellant (287.4 t LOX + 123.5 t RP-1),
-  // S = Falcon second stage (75.2 t + 32.3 t). Real Falcon structures are lighter than 0.05
-  // (side booster ≈ 0.044 without engines); the brief's 0.05 floor is kept.
+  // Generic grid (brief). 3.7 m kerolox: L = one Falcon Heavy core's propellant, S = Falcon second
+  // stage, at the generic 0.05 fraction; the real-structure versions are the reference tanks below.
   ...family(
     'kerolox',
     3.7,
@@ -103,16 +108,17 @@ export const TANKS: TankPart[] = [
     5.4,
     [25_000, 54_000, 150_000],
     0.11,
-    'M sized like Centaur V (heavy, 54 t propellant; Wikipedia “Vulcan Centaur”).',
+    'M sized like Centaur V (heavy, 54 t propellant; Wikipedia “Vulcan Centaur”); reference version: tank-h54-centaur-v.',
   ),
   ...family(
     'methalox',
     5.4,
     [88_350, 176_700, 353_400],
     0.06,
-    'L sized like the Vulcan booster (382 t gross − 28.6 t empty = 353.4 t, derived from Wikipedia “Vulcan Centaur”); real structure without 2 BE-4 ≈ 0.050.',
+    'L sized like the Vulcan booster (382 t gross − 28.6 t empty = 353.4 t, derived from Wikipedia “Vulcan Centaur”); real-structure version: tank-m54-vulcan.',
   ),
-  // Atlas V family (all numbers from the Atlas V User's Guide, Fig. 1.4.1-3/1.4.1-4).
+  // Reference tanks: real stage structure = published stage dry mass − engines (presetReference.ts).
+  // Atlas V (ULA Atlas V User's Guide Rev 11, Fig. 1.4.1-3/1.4.1-4).
   tank(
     'tank-k381-ccb',
     'Kerolox tank 3.81 m · Common Core',
@@ -121,7 +127,7 @@ export const TANKS: TankPart[] = [
     284_089,
     { kg: 15_574 },
     'Atlas V Common Core Booster: 284,089 kg LO2/RP-1, 21,054 kg inert minus the 5,480 kg RD-180 = 15,574 kg (fraction 0.055). ULA Atlas V User’s Guide Rev 11, Fig. 1.4.1-3.',
-    'https://www.ulalaunch.com/docs/default-source/rockets/atlasvusersguide2010.pdf',
+    { url: AVUG_URL, referenceStageId: 'ref-av401-ccb' },
   ),
   tank(
     'tank-k381-half',
@@ -131,7 +137,7 @@ export const TANKS: TankPart[] = [
     142_045,
     { kg: 7_787 },
     'Game balance: half of the Atlas V Common Core Booster tank, same structural fraction (0.055).',
-    'https://www.ulalaunch.com/docs/default-source/rockets/atlasvusersguide2010.pdf',
+    { url: AVUG_URL },
   ),
   tank(
     'tank-h305-centaur',
@@ -139,9 +145,51 @@ export const TANKS: TankPart[] = [
     'hydrolox',
     3.05,
     20_830,
-    { fraction: 0.1 },
-    'Atlas V Centaur (single engine): 20,830 kg LH2/LO2, 2,243 kg inert incl. one 190 kg RL10C-1 → 2,053 kg structure (0.099); rounded up to the brief’s 0.10 floor = 2,083 kg. ULA Atlas V User’s Guide Rev 11, Fig. 1.4.1-3.',
-    'https://www.ulalaunch.com/docs/default-source/rockets/atlasvusersguide2010.pdf',
+    { kg: 2_053 },
+    'Atlas V Centaur (single engine): 20,830 kg LH2/LO2, 2,243 kg inert minus one 190 kg RL10C-1 = 2,053 kg (fraction 0.099). ULA Atlas V User’s Guide Rev 11, Fig. 1.4.1-3.',
+    { url: AVUG_URL, referenceStageId: 'ref-av401-centaur' },
+  ),
+  // Falcon Heavy (Wikipedia “Falcon Heavy” spec table, citing Espace & Exploration no. 51).
+  tank(
+    'tank-k37-falcon-core',
+    'Kerolox tank 3.7 m · Falcon core',
+    'kerolox',
+    3.7,
+    410_900,
+    { kg: 17_970 },
+    'Falcon Heavy core/side booster: 410,900 kg propellant (287.4 t LOX + 123.5 t RP-1), 22,200 kg dry minus 9 × 470 kg Merlin 1D = 17,970 kg (fraction 0.044; Merlin mass is an estimate).',
+    { url: FH_URL, referenceStageId: 'ref-fhe-core' },
+  ),
+  tank(
+    'tank-k37-falcon-upper',
+    'Kerolox tank 3.7 m · Falcon upper',
+    'kerolox',
+    3.7,
+    107_500,
+    { kg: 3_500 },
+    'Falcon Heavy second stage: 107,500 kg propellant (75.2 t LOX + 32.3 t RP-1), 4,000 kg dry minus a 500 kg Merlin Vacuum = 3,500 kg (fraction 0.033; MVac mass is an estimate).',
+    { url: FH_URL, referenceStageId: 'ref-fhe-upper' },
+  ),
+  // Vulcan VC4 (Wikipedia “Vulcan Centaur”).
+  tank(
+    'tank-m54-vulcan',
+    'Methalox tank 5.4 m · Vulcan booster',
+    'methalox',
+    5.4,
+    353_400,
+    { kg: 17_800 },
+    'Vulcan booster: 382,000 kg gross − 28,600 kg empty = 353,400 kg propellant (derived); 28,600 kg minus 2 × 5,400 kg BE-4 = 17,800 kg (fraction 0.050; BE-4 mass is an estimate).',
+    { url: VULCAN_URL, referenceStageId: 'ref-vc4-booster' },
+  ),
+  tank(
+    'tank-h54-centaur-v',
+    'Hydrolox tank 5.4 m · Centaur V',
+    'hydrolox',
+    5.4,
+    54_000,
+    { kg: 5_324 },
+    'Centaur V (heavy): 54,000 kg propellant (Wikipedia “Vulcan Centaur”). Structure 5,324 kg: estimate: Centaur III structural fraction 0.0986 × 54 t (ULA publishes no Centaur V dry mass).',
+    { url: VULCAN_URL, referenceStageId: 'ref-vc4-centaur-v' },
   ),
 ]
 

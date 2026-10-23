@@ -121,9 +121,9 @@ describe('catalog integrity', () => {
     expect(prop('be-4')).toBe('methalox')
   })
 
-  it('tank dry fractions stay in real ranges and the brief grid exists', () => {
+  it('generic tank dry fractions stay in the brief ranges and the brief grid exists', () => {
     const range = { kerolox: [0.05, 0.07], hydrolox: [0.1, 0.12], methalox: [0.06, 0.08] } as const
-    for (const t of TANKS) {
+    for (const t of TANKS.filter((x) => !x.referenceStageId)) {
       const f = t.dryKg / t.propellantKg
       expect(f, t.id).toBeGreaterThanOrEqual(range[t.propellant][0] - 1e-9)
       expect(f, t.id).toBeLessThanOrEqual(range[t.propellant][1] + 1e-9)
@@ -133,6 +133,49 @@ describe('catalog integrity', () => {
         const family = TANKS.filter((t) => t.diameterM === d && t.propellant === p)
         expect(family.length, `${d} m ${p}`).toBeGreaterThanOrEqual(3)
       }
+    }
+  })
+
+  it('reference tanks match their real stage: propellant and tank + engines dry mass within 5%', () => {
+    const refTanks = TANKS.filter((t) => t.referenceStageId)
+    expect(refTanks.length).toBeGreaterThan(0)
+    for (const t of refTanks) {
+      const ref = PRESET_REFERENCE.find((r) => r.id === t.referenceStageId)
+      expect(ref, t.id).toBeDefined()
+      const engine = ENGINES.find((e) => e.id === ref!.engineId)
+      expect(engine, t.id).toBeDefined()
+      expect(t.propellant, t.id).toBe(ref!.propellant)
+      expect(Math.abs(t.propellantKg - ref!.propellantKg!) / ref!.propellantKg!, t.id).toBeLessThanOrEqual(0.05)
+      const dry = t.dryKg + engine!.massKg * (ref!.engineCount ?? 1)
+      expect(Math.abs(dry - ref!.dryKg) / ref!.dryKg, t.id).toBeLessThanOrEqual(0.05)
+    }
+  })
+
+  it('every liquid reference stage can be built from one catalog tank plus its engines', () => {
+    for (const ref of PRESET_REFERENCE.filter((r) => r.engineId)) {
+      const engine = ENGINES.find((e) => e.id === ref.engineId)!
+      const engineKg = engine.massKg * (ref.engineCount ?? 1)
+      const match = TANKS.find(
+        (t) =>
+          t.propellant === ref.propellant &&
+          Math.abs(t.propellantKg - ref.propellantKg!) / ref.propellantKg! <= 0.05 &&
+          Math.abs(t.dryKg + engineKg - ref.dryKg) / ref.dryKg <= 0.05,
+      )
+      expect(match, ref.id).toBeDefined()
+    }
+  })
+
+  it('preset references resolve to catalog parts and cover every LSP curve', () => {
+    for (const ref of PRESET_REFERENCE) {
+      if (ref.engineId) expect(ENGINES.some((e) => e.id === ref.engineId), ref.id).toBe(true)
+      if (ref.boosterId) expect(BOOSTERS.some((b) => b.id === ref.boosterId), ref.id).toBe(true)
+      expect(LSP_CURVES.some((c) => c.presetId === ref.presetId), ref.id).toBe(true)
+    }
+    for (const c of LSP_CURVES) {
+      const elements = PRESET_REFERENCE.filter((r) => r.presetId === c.presetId).map((r) => r.element)
+      expect(elements, c.presetId).toContain('upper')
+      expect(elements, c.presetId).toContain('fairing')
+      expect(elements.includes('core') || elements.includes('booster'), c.presetId).toBe(true)
     }
   })
 

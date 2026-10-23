@@ -1,6 +1,7 @@
 // Strap-on solid rocket boosters. Propellant, total mass, burn time and dimensions: Northrop
 // Grumman GEM 63/63XL datasheet (DS-26). Isp: NG Propulsion Products Catalog via Wikipedia
-// “Graphite-Epoxy Motor”. Thrust values are burn-averaged and derived so that thrust × burn time
+// “Graphite-Epoxy Motor”; the catalogue does not say SL or vacuum — treating it as vacuum Isp is an
+// estimate (assumption), and the SL values below inherit it. Thrust values are burn-averaged and derived so that thrust × burn time
 // equals the total impulse (propellant × Isp × g0):
 //   thrustVac = propellant / burn time × ispVac × g0
 //   thrustSL  = thrustVac − 101,325 Pa × nozzle exit area;  ispSL = ispVac × thrustSL / thrustVac
@@ -23,7 +24,7 @@ export const BOOSTERS: BoosterPart[] = [
     diameterM: 1.6,
     lengthM: 20.09,
     source:
-      'Atlas V strap-on since 2020. NG GEM 63 datasheet: 49,300 kg total, 44,200 kg propellant, 97.6 s burn, 1.60 m × 20.09 m, nozzle exit 1.37 m. Isp 279.06 s (vac): NG catalog via Wikipedia “Graphite-Epoxy Motor”. Average thrust and SL values derived (see file header). Cost: game balance.',
+      'Atlas V strap-on since 2020. NG GEM 63 datasheet: 49,300 kg total, 44,200 kg propellant, 97.6 s burn, 1.60 m × 20.09 m, nozzle exit 1.37 m. Isp 279.06 s: NG catalog via Wikipedia “Graphite-Epoxy Motor”; estimate: treated as vacuum Isp (the catalogue does not state SL or vac). Average thrust and SL values derived (see file header), so they are estimates too. Cost: game balance.',
     url: NG_URL,
   },
   {
@@ -39,7 +40,7 @@ export const BOOSTERS: BoosterPart[] = [
     diameterM: 1.6,
     lengthM: 21.95,
     source:
-      'Vulcan strap-on. NG GEM 63XL datasheet: 53,400 kg total, 48,000 kg propellant, 87.3 s burn, 1.60 m × 21.95 m, nozzle exit 1.42 m. Isp 280.3 s (vac): NG catalog via Wikipedia “Graphite-Epoxy Motor”. Average thrust and SL values derived (see file header). Cost: game balance.',
+      'Vulcan strap-on. NG GEM 63XL datasheet: 53,400 kg total, 48,000 kg propellant, 87.3 s burn, 1.60 m × 21.95 m, nozzle exit 1.42 m. Isp 280.3 s: NG catalog via Wikipedia “Graphite-Epoxy Motor”; estimate: treated as vacuum Isp (the catalogue does not state SL or vac). Average thrust and SL values derived (see file header), so they are estimates too. Cost: game balance.',
     url: NG_URL,
   },
 ]
