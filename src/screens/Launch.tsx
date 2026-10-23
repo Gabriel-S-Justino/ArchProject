@@ -1,10 +1,13 @@
 // Launch: the player's own rocket flies the numbers the design computed. The event list comes from
 // launchTimeline (stage burn times from propellant mass and mass flow, staging when each stage is
-// spent); playback compresses the real burn seconds into a few seconds and ticks the separations off
-// the stack diagram. The large slot is the launch view (2D here; Task 14 mounts the 3D scene).
-import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react'
+// spent); playback compresses the real burn seconds (src/scenes/launchTiming.ts: about 25 s with the
+// 3D view, a few seconds with the 2D drawing) and the HUD over the view shows the stage, the Δv
+// spent of the Δv required and the current event. The 3D launch scene (lazy-loaded) fills the slot;
+// the stack drawing ticks the separations off where WebGL is unavailable. Under reduced motion the
+// result shows at once, with still frames of each event on request.
+import { ArrowLeft, ArrowRight, RotateCcw, SkipForward } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGame, useRocketStats, useTransfer } from '@/app/store'
 import { ActionButton } from '@/components/ActionButton'
 import { Gauge } from '@/components/Gauge'
@@ -15,14 +18,27 @@ import type { LaunchOutcome } from '@/game/autoplay'
 import { cn } from '@/lib/utils'
 import { MIN_LIFTOFF_TWR, ascentDeltaV, requiredDeltaV, type LaunchEvent, type RocketStats } from '@/physics/launcher'
 import { formatJd } from '@/physics/time'
+import {
+  buildSchedule,
+  burnoutTime,
+  dvAt,
+  eventsShown,
+  realTimeAt,
+  stageBurns,
+  type LaunchSchedule,
+  type SceneEvent,
+  type ScheduleOptions,
+} from '@/scenes/launchTiming'
+import { LaunchView } from '@/scenes/SceneSlot'
+import { useWebGL2 } from '@/scenes/webgl'
 import { StackElevation, type StackDropped } from './design/StackElevation'
 import { NoFlight, Plate, PlateActions, PlateTitle } from './flight/plate'
 import { vehicleName } from './flight/vehicle'
 
-/** Real burn time is replayed this fast: the whole ascent and departure in about 8 seconds. */
-const PLAYBACK_S = 8
-/** A pad abort still holds for this long, engines at full thrust, before the verdict. */
-const MIN_PLAYBACK_S = 1.6
+/** Animation timing with the 3D view: about 25 s from ignition to the hand-back. */
+const TIMING_3D: ScheduleOptions = { flightA: 19, preRollA: 2.5, holdA: 2.5 }
+/** With the 2D drawing: about 8 s. */
+const TIMING_2D: ScheduleOptions = { flightA: 6, preRollA: 0.4, holdA: 0.6, minGapA: 0.6, sameGapA: 0.3 }
 
 function eventLabel(e: LaunchEvent, c3: number): string {
   switch (e.kind) {
@@ -57,6 +73,29 @@ function eventDv(e: LaunchEvent, stats: RocketStats, c3: number): number {
   }
 }
 
+/** The HUD's line for the latest event on screen (visual-only events included). */
+function hudLabel(e: SceneEvent | undefined, failure: LaunchOutcome['failure'], c3: number): string {
+  if (!e) return 'Terminal count'
+  switch (e.kind) {
+    case 'ignition':
+      return 'Ignition'
+    case 'liftoff':
+      return failure === 'pad' ? 'Thrust below weight: holding on the pad' : 'Liftoff'
+    case 'abort':
+      return 'Pad abort: engines shut down'
+    case 'cutoff':
+      return failure === 'orbit' ? 'Engine cut-off: did not reach orbit' : 'Engine cut-off: did not reach the departure C3'
+    case 'stage-sep':
+      return `Stage ${(e.stage ?? 0) + 1} separation`
+    case 'booster-sep':
+      return 'Booster separation'
+    case 'fairing-sep':
+      return 'Fairing jettison'
+    default:
+      return eventLabel({ t: e.t, kind: e.kind, stage: e.stage }, c3)
+  }
+}
+
 const tPlus = (t: number) => {
   const s = Math.max(0, Math.round(t))
   return `T+${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
@@ -86,38 +125,72 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
   const reviseDesign = useGame((s) => s.reviseDesign)
   const stats = useRocketStats()
   const transfer = useTransfer()
-  const reduced = useReducedMotion()
+  const reduced = useReducedMotion() === true
+  const gl = useWebGL2()
   const { timeline, c3, failure } = launch
-  const tEnd = timeline.events.reduce((m, e) => Math.max(m, e.t), 0)
-  const [run, setRun] = useState(0)
-  const [t, setT] = useState(reduced ? Infinity : 0)
 
-  // Playback clock: real burn seconds compressed into PLAYBACK_S.
+  const burns = useMemo(() => stageBurns(timeline.events, stats, failure), [timeline.events, stats, failure])
+  const schedule = useMemo<LaunchSchedule>(
+    () => buildSchedule(timeline.events, { ...(gl ? TIMING_3D : TIMING_2D), failure, burnoutT: burnoutTime(burns) }),
+    [timeline.events, gl, failure, burns],
+  )
+  const tEnd = schedule.tEnd
+
+  // Playback clock in animation seconds; the 3D scene reads `clock` every frame, React state drives
+  // the HUD and the event list. Infinity = the sequence is over (or skipped).
+  const [run, setRun] = useState(0)
+  // With the 3D view, the clock waits for its first frame (at most 5 s), so ignition is not missed.
+  const [ready, setReady] = useState(!gl || reduced)
   useEffect(() => {
+    if (ready) return
+    const id = setTimeout(() => setReady(true), 5000)
+    return () => clearTimeout(id)
+  }, [ready])
+  const [a, setA] = useState(reduced ? Infinity : 0)
+  const [still, setStill] = useState<number | null>(null)
+  const clock = useRef(reduced ? schedule.endA : 0)
+  const raf = useRef(0)
+  useEffect(() => {
+    cancelAnimationFrame(raf.current)
     if (reduced) {
-      setT(Infinity)
+      clock.current = schedule.endA
+      setA(Infinity)
       return
     }
-    setT(0)
-    const wall = Math.max(MIN_PLAYBACK_S, tEnd > 0 ? PLAYBACK_S : 0)
-    const speed = tEnd > 0 ? tEnd / PLAYBACK_S : 0
+    clock.current = 0
+    setA(0)
+    if (!ready) return
     const t0 = performance.now()
-    let raf = 0
     const frame = (now: number) => {
       const s = (now - t0) / 1000
-      if (s >= wall) {
-        setT(Infinity)
+      if (s >= schedule.endA) {
+        clock.current = schedule.endA
+        setA(Infinity)
         return
       }
-      setT(s * speed)
-      raf = requestAnimationFrame(frame)
+      clock.current = s
+      setA(s)
+      raf.current = requestAnimationFrame(frame)
     }
-    raf = requestAnimationFrame(frame)
-    return () => cancelAnimationFrame(raf)
-  }, [run, reduced, tEnd])
+    raf.current = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(raf.current)
+  }, [run, reduced, schedule, ready])
+  useEffect(() => {
+    if (reduced) clock.current = still ?? schedule.endA
+  }, [reduced, still, schedule])
+  const onSceneReady = useCallback(() => setReady(true), [])
+  const skip = () => {
+    cancelAnimationFrame(raf.current)
+    clock.current = schedule.endA
+    setA(Infinity)
+  }
 
-  const done = t === Infinity
-  const passed = timeline.events.filter((e) => e.t <= t)
+  const done = a === Infinity
+  const aShown = done ? (reduced && still !== null ? still : schedule.endA) : a
+  const t = realTimeAt(schedule, aShown)
+  const shown = eventsShown(schedule, aShown)
+  const reachedIndex = new Set(shown.flatMap((e) => (e.index !== undefined ? [e.index] : [])))
+  const passed = timeline.events.filter((_, i) => done || reachedIndex.has(i))
   const dropped: StackDropped = {
     boosters: passed.some((e) => e.kind === 'booster-sep'),
     stages: passed.filter((e) => e.kind === 'stage-sep').length,
@@ -127,6 +200,11 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
   const required = requiredDeltaV(c3, stats.liftoffTwr)
   const twrOk = stats.liftoffTwr >= MIN_LIFTOFF_TWR
   const name = useMemo(() => vehicleName(design.rocket), [design.rocket])
+  const spent = Math.min(dvAt(burns, t), failure ? Infinity : required)
+  const nStages = design.rocket.stages.length
+  // The stage on the HUD follows the separations shown (coincident events are shown one by one).
+  const stageNow = Math.min(nStages - 1, shown.filter((e) => e.kind === 'stage-sep').length)
+  const stills = schedule.events.filter((e) => e.kind !== 'ignition')
 
   return (
     <Plate wide>
@@ -140,21 +218,67 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
         }
       />
 
-      <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <div
-          data-slot="launch-3d"
-          className="relative flex h-[min(34rem,calc(100dvh-15rem))] items-end justify-center border border-rule bg-ground-sunken px-4 pt-4"
-        >
-          <div className={cn('h-full w-full transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]')}>
-            <StackElevation rocket={design.rocket} dropped={dropped} />
+      <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+        <div>
+          <div
+            data-slot="launch-3d"
+            className="relative h-[min(38rem,calc(100dvh-14rem))] min-h-[22rem] overflow-hidden border border-rule bg-ground-sunken"
+          >
+            <LaunchView
+              rocket={design.rocket}
+              schedule={schedule}
+              burns={burns}
+              liftoffTwr={stats.liftoffTwr}
+              clock={clock}
+              playing={!done}
+              frameKey={still ?? -1}
+              onReady={onSceneReady}
+              fallback={
+                <div className="absolute inset-0 flex items-end justify-center px-4 pt-16 pb-14">
+                  <StackElevation rocket={design.rocket} dropped={dropped} />
+                </div>
+              }
+            />
+            <LaunchHud
+              clock={tPlus(t)}
+              label={hudLabel(shown.at(-1), failure, c3)}
+              stage={nStages ? `${Math.max(1, stageNow + 1)} of ${nStages}` : '–'}
+              spent={spent}
+              required={required}
+              failed={done && failure !== undefined}
+              onReplay={reduced ? undefined : () => setRun((r) => r + 1)}
+              onSkip={done ? undefined : skip}
+            />
           </div>
-          <span className="num absolute top-3 left-3 text-title font-medium text-ink" aria-live="off">
-            {done ? tPlus(tEnd) : tPlus(t)}
-          </span>
+          {reduced && (
+            <div role="group" aria-label="Still frames of the flight" className="mt-2 flex flex-wrap items-center gap-1">
+              <span className="label-caps mr-2 text-ink-3">Still frame</span>
+              {stills.map((e, i) => {
+                // A moment after the event, before the next one takes over the HUD.
+                const next = stills[i + 1]?.a ?? Infinity
+                const at = e.a + Math.min(e.kind === 'liftoff' ? 1.4 : /sep$/.test(e.kind) ? 0.9 : 0.4, (next - e.a) * 0.85)
+                const on = still === null ? i === stills.length - 1 : Math.abs(still - at) < 1e-6
+                return (
+                  <button
+                    key={`${e.kind}-${i}`}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setStill(at)}
+                    className={cn(
+                      'h-7 border px-2 text-detail transition-colors',
+                      on ? 'border-ink-3 bg-ground-raised text-ink' : 'border-rule text-ink-2 hover:border-rule-strong hover:text-ink',
+                    )}
+                  >
+                    {hudLabel(e, failure, c3).split(':')[0]}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
-        <div className="flex min-w-0 flex-col gap-6">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-4 xl:grid-cols-3">
+        <div className="@container flex min-w-0 flex-col gap-6">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 @lg:grid-cols-3">
             <Readout
               label="Liftoff TWR"
               value={stats.liftoffTwr}
@@ -186,7 +310,7 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
             </h2>
             <ol className="mt-2">
               {timeline.events.map((e, i) => {
-                const reached = e.t <= t
+                const reached = done || reachedIndex.has(i)
                 return (
                   <li
                     key={`${e.kind}-${i}`}
@@ -222,11 +346,11 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
             Into cruise
           </ActionButton>
         )}
-        {!done && <p className="text-detail text-ink-3">The flight is replayed at about {formatNumber(tEnd / PLAYBACK_S)}× speed.</p>}
-        <ActionButton tone="quiet" onClick={() => setRun((r) => r + 1)}>
-          <RotateCcw aria-hidden className="size-4" />
-          Replay
-        </ActionButton>
+        {!done && (
+          <p className="num text-detail text-ink-3">
+            {tPlus(tEnd)} of burn time replayed in {formatNumber(schedule.endA)} s. Skip to see the result now.
+          </p>
+        )}
         {failure && (
           <ActionButton tone="quiet" onClick={() => reviseDesign()}>
             <ArrowLeft aria-hidden className="size-4" />
@@ -235,6 +359,84 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
         )}
       </PlateActions>
     </Plate>
+  )
+}
+
+const hudButton =
+  'inline-flex h-8 items-center gap-1.5 border border-rule-strong bg-ground px-2.5 text-detail font-semibold text-ink-2 transition-colors hover:border-ink-3 hover:text-ink [&_svg]:size-3.5'
+
+/**
+ * The overlay on the launch view (DOM, over the 3D or the 2D drawing): mission clock, the current
+ * event, the stage firing, Δv spent of the Δv required, and Replay / Skip.
+ */
+function LaunchHud({
+  clock,
+  label,
+  stage,
+  spent,
+  required,
+  failed,
+  onReplay,
+  onSkip,
+}: {
+  clock: string
+  label: string
+  stage: string
+  spent: number
+  required: number
+  failed: boolean
+  onReplay?: () => void
+  onSkip?: () => void
+}) {
+  const frac = Number.isFinite(required) && required > 0 ? Math.min(1, Math.max(0, spent / required)) : 0
+  return (
+    <>
+      {/* Tonal scrims keep the HUD legible over bright smoke and the Earth (no blur). */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-linear-to-b from-ground-sunken/70 to-transparent" aria-hidden />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-ground-sunken/85 to-transparent" aria-hidden />
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-3">
+        <div className="min-w-0">
+          <span className="num block text-title font-medium text-ink" aria-hidden>
+            {clock}
+          </span>
+          <span className={cn('block text-small', failed ? 'text-nogo' : 'text-ink-2')} aria-live="polite">
+            {label}
+          </span>
+        </div>
+        <div className="pointer-events-auto flex shrink-0 gap-2">
+          {onSkip ? (
+            <button type="button" onClick={onSkip} className={hudButton}>
+              <SkipForward aria-hidden />
+              Skip
+            </button>
+          ) : (
+            onReplay && (
+              <button type="button" onClick={onReplay} className={hudButton}>
+                <RotateCcw aria-hidden />
+                Replay
+              </button>
+            )
+          )}
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 grid grid-cols-[auto_minmax(0,1fr)] items-end gap-x-6 p-3">
+        <div>
+          <span className="label-caps block text-ink-3">Stage</span>
+          <span className="num text-small font-medium text-ink">{stage}</span>
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="label-caps text-ink-3">Δv spent</span>
+            <span className="num text-small whitespace-nowrap text-ink">
+              {formatNumber(spent)} <span className="text-ink-3">of {formatNumber(required)} m/s</span>
+            </span>
+          </div>
+          <div className="relative mt-1.5 h-[3px] bg-rule" aria-hidden>
+            <div className="absolute inset-y-0 left-0 bg-ink-2" style={{ width: `${frac * 100}%` }} />
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
 

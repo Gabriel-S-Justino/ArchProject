@@ -1,6 +1,6 @@
 // A side elevation of the rocket, drawn to scale from the catalog's tank and booster dimensions, like
-// the vehicle outline in a launch-vehicle user's guide. It is the static stand-in that fills the
-// hangar slot until the 3D hangar (Task 14) mounts there.
+// the vehicle outline in a launch-vehicle user's guide. It fills the hangar and launch slots while the
+// 3D scenes load, and stays there when WebGL is unavailable.
 import { boosterById } from '@/data/boosters'
 import { engineById } from '@/data/engines'
 import { tankById } from '@/data/tanks'

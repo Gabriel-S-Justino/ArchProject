@@ -209,6 +209,9 @@ All corners are square (`--radius` 2 px). Bars are flat rectangles. The only rou
 ### AppShell (`src/components/AppShell.tsx`)
 `{ renderScreen(phase) }`. The top bar, the phase stations and the docked panel. Stations show their number and name. The current one gets a 2px Mars underline, reached ones a check and an ink-3 underline, and locked ones a lock icon with the reason as title and accessible description. Mission select is reached through the wordmark, Data sources through the Sources link, and Sources' Back button returns to the last phase.
 
+### 3D views (`src/scenes/`)
+The hangar (Rocket tab) and the launch view are the only places with depth, and they keep the plate's palette: a graphite studio or dusk sky, paper-white and insulation-foam tanks, graphite structure, no logos or flags. The hangar is a product shot: soft boxes, a metric floor grid that fades out (it is a scale, 1 m cells and 10 m sections), a dark gantry, and plain DOM callouts in label and figure type (height, stage lengths, fairing width) on the camera's side. Live edits slide parts into place with the standard ease-out. The launch view plays the real burn timeline compressed into about 25 s; only the exhaust blooms. Its HUD is DOM over the view: the T+ clock and current event at the top left (the event in no-go red only for a failure, always as words), Skip or Replay at the top right, and the stage and "Δv spent of required" with a hairline bar at the bottom, on tonal scrims (no blur). Without WebGL the 2D elevation stays, with a one-line note. Under reduced motion the hangar snaps and the launch shows its result at once, with still frames per event.
+
 ### ActionButton (`src/components/ActionButton.tsx`)
 Primary is the Mars fill with mars-ink text: one per screen, square, 40 px, label then arrow. Quiet is a hairline border with ink-2 text. Disabled primary turns to ground-hover with ink-3 text, and the reason sits next to it in ink-3.
 
