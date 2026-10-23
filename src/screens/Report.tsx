@@ -10,7 +10,7 @@ import { formatNumber } from '@/components/status'
 import { Timeline, type TimelineEvent, type TimelineSpan } from '@/components/Timeline'
 import { MISSION } from '@/data/mission'
 import { REAL_MISSIONS } from '@/data/realMissions'
-import type { CruiseProgress, MissionReport } from '@/game/autoplay'
+import { TCM_LOG_MIN_MS, type CruiseProgress, type MissionReport } from '@/game/autoplay'
 import type { ArrivalResult } from '@/game/cruise'
 import type { OpsState } from '@/game/ops'
 import { SAFE_MODE_DAYS_PER_PENALTY, SAFE_MODE_PENALTY, SCORE_DIFFICULTY_MULTIPLIER } from '@/game/scoring'
@@ -201,7 +201,9 @@ function MissionTimeline({ cruise, arrival, ops }: { cruise: CruiseProgress | nu
   if (cruise) {
     const end = arrival ? arr : cruise.sim.jd
     spans.push({ fromJd: dep, toJd: end, label: `Cruise · ${Math.round(end - dep)} days`, tone: 'accent' })
-    for (const t of cruise.sim.tcms) events.push({ jd: t.jd, label: `TCM ${formatNumber(t.dvMs, 1)} m/s`, tone: 'ink' })
+    // A burn under the log's resolution reads as a trim, not "0.0 m/s".
+    for (const t of cruise.sim.tcms)
+      events.push({ jd: t.jd, label: t.dvMs < TCM_LOG_MIN_MS ? 'TCM trim' : `TCM ${formatNumber(t.dvMs, 1)} m/s`, tone: 'ink' })
     for (const r of cruise.sim.events) events.push({ jd: dep + r.event.day, label: `${r.event.flare.classType} flare`, tone: r.damaged ? 'bad' : 'warn' })
   }
   if (arrival) events.push({ jd: arr, label: arrival.captured ? 'Capture' : 'Flyby', tone: arrival.captured ? 'accent' : 'bad' })

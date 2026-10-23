@@ -57,7 +57,7 @@ export function SpacecraftTab() {
       </header>
 
       <section aria-label="Spacecraft budgets" className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 gap-x-8 gap-y-6 @2xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-6 @xl:grid-cols-4">
           <Readout
             label="Wet mass"
             value={sc.wetKg}
@@ -93,7 +93,7 @@ export function SpacecraftTab() {
           />
           <Readout label="Spacecraft cost" value={sc.costM} unit="US$ M" hint={<>Budget {formatNumber(MISSION.budgetM)} with the rocket · <GameBalance /></>} />
         </div>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-6 @2xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-6 @xl:grid-cols-4">
           <Readout label="Downlink at 1 AU" value={sc.rateMbpsAt1AU} digits={2} unit="Mbit/s" hint="All antennas together" />
           <Readout
             label="Downlink at arrival"

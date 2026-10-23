@@ -10,7 +10,7 @@
 // is ACES. Rendering stops while the view is off-screen or the tab is hidden.
 import { Environment, Lightformer, Preload } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing'
+import { Bloom, EffectComposer, SMAA, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
@@ -80,9 +80,12 @@ function LaunchScene(props: LaunchSceneProps) {
         {/* Compile every shader and upload the Earth texture before the clock starts, so ignition,
             upper-stage ignition and the first view of the Earth do not hitch. */}
         <Preload all />
-        <EffectComposer multisampling={4}>
+        {/* SMAA, not the composer's MSAA: with multisampled buffers this scene renders black on
+            Direct3D 11 GPUs (ANGLE), while the scene itself draws correctly. */}
+        <EffectComposer multisampling={0}>
           <Bloom mipmapBlur luminanceThreshold={1} luminanceSmoothing={0.2} intensity={0.8} radius={0.68} />
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+          <SMAA />
         </EffectComposer>
         <DevStats name="launch" />
       </Canvas>

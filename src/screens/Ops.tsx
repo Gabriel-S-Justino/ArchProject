@@ -240,7 +240,8 @@ function Planner({ ops, design, damaged }: { ops: OpsState; design: MissionDesig
         digits={1}
       />
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+      {/* The turn's one action stays in sight at the bottom of the view while the plan is longer than the screen. */}
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule bg-ground pt-3 pb-4">
         <ActionButton guardKey={ops.turn} onClick={() => runOpsTurn({ instrumentsOn: on })} disabled={load > limits.maxLoadW + 1e-9} icon={<ArrowRight aria-hidden />}>
           Run turn {ops.turn + 1}
         </ActionButton>

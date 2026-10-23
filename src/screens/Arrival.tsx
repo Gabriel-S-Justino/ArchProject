@@ -71,6 +71,8 @@ export function Arrival() {
             <Readout
               label="Arrival-day distance"
               value={missKm}
+              // A near-perfect approach is still a real distance: below 10 km show the decimal, never a bare 0.
+              digits={missKm < 10 ? 1 : 0}
               unit="km"
               status={inReach ? 'ok' : 'bad'}
               hint={`From Mars on ${formatJd(sim.arrJd)} · capture ≤ ${formatNumber(CAPTURE_MAX_MISS_KM)} km`}

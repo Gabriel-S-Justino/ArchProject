@@ -69,6 +69,12 @@ export function DesignWorkspace() {
               <Tabs.Trigger
                 key={t.id}
                 value={t.id}
+                // Radix focuses the tab from script on mouse down, which Chrome treats as keyboard focus
+                // (the focus ring would box a clicked tab). Focus it first without the ring; keyboard
+                // focus still shows it.
+                onMouseDown={(e) => {
+                  if (e.button === 0) (e.currentTarget as HTMLElement).focus({ focusVisible: false } as FocusOptions)
+                }}
                 className={cn(
                   'group -mb-px flex h-12 items-center gap-2.5 border-b-2 border-transparent px-4 text-lead transition-colors first:pl-0',
                   'text-ink-2 hover:text-ink data-[state=active]:border-mars data-[state=active]:font-semibold data-[state=active]:text-ink',

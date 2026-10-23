@@ -42,7 +42,7 @@ export function TrajectoryTab() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="@container flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="max-w-[62ch]">
           <h2 className="text-title font-semibold [font-stretch:88%]">Choose launch and arrival dates</h2>
@@ -83,8 +83,10 @@ export function TrajectoryTab() {
         <div className="@container">
           <div className="grid items-start gap-x-8 gap-y-6 @5xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
             <figure className="flex min-w-0 flex-col gap-3">
-              <PorkchopLegend grid={grid} />
+              {/* The plot first (it owns the field and must start above the fold on a laptop); its key
+                  and caption sit under it, as in a handbook figure. */}
               <PorkchopPlot grid={grid} selected={selected} onHover={setHoverTransfer} onSelect={setTransfer} />
+              <PorkchopLegend grid={grid} className="-mt-1" />
               <figcaption className="text-detail text-ink-3">
                 Earth → Mars, late-2026 window. Flight times {grid.spec.minTofDays}–{grid.spec.maxTofDays} days; empty cells
                 have no transfer. Arrow keys move the crosshair when the plot has focus, Enter chooses.
@@ -162,7 +164,7 @@ function TransferReadouts() {
     )
   }
   return (
-    <div className="grid grid-cols-2 gap-x-8 gap-y-6 @2xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-x-8 gap-y-6 @xl:grid-cols-4">
       <Readout
         label="Launch C3"
         value={transfer.c3}
