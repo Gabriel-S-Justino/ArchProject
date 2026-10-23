@@ -10,7 +10,7 @@
 // view is on screen.
 import { useTexture } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing'
+import { Bloom, EffectComposer, SMAA, ToneMapping } from '@react-three/postprocessing'
 import { useReducedMotion } from 'motion/react'
 import { ToneMappingMode } from 'postprocessing'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
@@ -94,9 +94,12 @@ function MarsArrival(props: MarsArrivalProps) {
         <color attach="background" args={['#000000']} />
         <InvalidateOn value={live} />
         <Scene {...props} geo={geo} stageEl={stage} />
-        <EffectComposer multisampling={4}>
+        {/* SMAA, not the composer's MSAA: multisampled buffers render black on Direct3D 11 GPUs
+            (ANGLE), as in LaunchScene. */}
+        <EffectComposer multisampling={0}>
           <Bloom mipmapBlur luminanceThreshold={1} luminanceSmoothing={0.2} intensity={0.7} radius={0.6} />
           <ToneMapping mode={ToneMappingMode.NEUTRAL} />
+          <SMAA />
         </EffectComposer>
         <DevStats name="arrival" />
       </Canvas>

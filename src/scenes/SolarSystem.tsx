@@ -10,7 +10,7 @@
 // keep drawing until they settle. Nothing draws off-screen or in a hidden tab.
 import { Environment, Lightformer, OrbitControls, Preload, useTexture } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing'
+import { Bloom, EffectComposer, SMAA, ToneMapping } from '@react-three/postprocessing'
 import { Minus, Plus } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import { ToneMappingMode } from 'postprocessing'
@@ -160,9 +160,12 @@ function SolarSystem(props: SolarSystemProps) {
         <CameraRig focus={hasShip || focus !== 'ship' ? focus : 'sun'} bodies={bodies} zoom={zoom} reduced={reduced} aim={arrivalRef} jd={sceneJd} />
         <LabelProjector items={items} els={els} root={wrap} />
         <Preload all />
-        <EffectComposer multisampling={4}>
+        {/* SMAA, not the composer's MSAA: multisampled buffers render black on Direct3D 11 GPUs
+            (ANGLE), as in LaunchScene. */}
+        <EffectComposer multisampling={0}>
           <Bloom mipmapBlur luminanceThreshold={1} luminanceSmoothing={0.2} intensity={0.75} radius={0.72} />
           <ToneMapping mode={ToneMappingMode.NEUTRAL} />
+          <SMAA />
         </EffectComposer>
         <DevStats name="solar" />
       </Canvas>
