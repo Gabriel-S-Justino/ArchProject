@@ -11,7 +11,7 @@ import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import type { Transfer } from '@/physics/porkchop'
 import { devStat } from './sceneHooks'
-import { ARC_POINTS, transferArc, writeLineDistances } from './solarScale'
+import { ARC_POINTS, transferArc, writeLineDistances, writeTrail } from './solarScale'
 
 /** DESIGN.md Mars rust (oklch 0.72 0.14 52 ≈ #e8894a). */
 export const RUST = '#e8894a'
@@ -41,6 +41,44 @@ export function GlowArc({ points, upTo = 1, width = 2.2, color = RUST, gain = 1.
     line.visible = segments >= 1 && line.geometry.instanceCount > 0
   }, [line, upTo, segments, points])
   return <primitive object={line} frustumCulled={false} />
+}
+
+/**
+ * The flown part of a sampled arc, solid rust: whole samples up to `frac` of the flight, then a last
+ * segment ending exactly at `end` (the ship), so the line never runs past the spacecraft or steps
+ * in whole segments during time warp. One preallocated buffer, rewritten in place.
+ */
+export function TrailArc({ points, frac, end, width = 2.2, color = RUST, gain = 1.3 }: { points: Float32Array; frac: number; end: ArrayLike<number> | null; width?: number; color?: string; gain?: number }) {
+  const invalidate = useThree((s) => s.invalidate)
+  const cap = Math.floor(points.length / 3) + 1
+  const { line, scratch } = useMemo(() => {
+    const g = new LineGeometry()
+    g.setPositions(new Float32Array(cap * 3)) // cap − 1 segments of storage
+    const mat = new LineMaterial({ linewidth: width, depthWrite: false })
+    mat.color.set(color).multiplyScalar(gain)
+    const l = new Line2(g, mat)
+    l.frustumCulled = false
+    return { line: l, scratch: new Float32Array(cap * 3) }
+  }, [cap, width, color, gain])
+  useEffect(
+    () => () => {
+      line.geometry.dispose()
+      line.material.dispose()
+    },
+    [line],
+  )
+  useLayoutEffect(() => {
+    const n = writeTrail(points, frac, end, scratch)
+    const attr = line.geometry.getAttribute('instanceStart') as THREE.InterleavedBufferAttribute
+    const arr = attr.data.array as Float32Array
+    // Segment i runs from point i to point i + 1: six consecutive floats of the point list.
+    for (let i = 0; i < n - 1; i++) arr.set(scratch.subarray(i * 3, i * 3 + 6), i * 6)
+    attr.data.needsUpdate = true
+    line.geometry.instanceCount = Math.max(0, n - 1)
+    line.visible = n > 1
+    invalidate()
+  }, [line, scratch, points, frac, end, invalidate])
+  return <primitive object={line} />
 }
 
 export interface DashedPathProps {

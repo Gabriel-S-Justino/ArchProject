@@ -21,15 +21,78 @@ export const ORBIT_PERIOD_DAYS: Record<Body, number> = { earth: 365.256, mars: 6
 /** Real radii, m (the Sun: IAU nominal 695,700 km). */
 const REAL_RADIUS_M = { sun: 695_700e3, earth: R_EARTH, mars: R_MARS }
 
+/** Drawn Earth radius, scene units. */
+const EARTH_DRAWN = 1.5
+
 /**
  * Drawn radii, scene units. Not to scale: at 1 AU = 100 units the Earth would be 0.004 units wide,
- * so the planets are enlarged a few hundred times (the Sun about thirteen times) to be seen at all.
+ * so both planets are enlarged by the same factor (about 350 times, keeping Mars at 0.53 of the
+ * Earth's size) and the Sun about thirteen times, to be seen at all.
  */
-export const DISPLAY_RADIUS = { sun: 6, earth: 1.5, mars: 1.15 } as const
+export const DISPLAY_RADIUS = { sun: 6, earth: EARTH_DRAWN, mars: (EARTH_DRAWN * R_MARS) / R_EARTH } as const
+
+/** Scene units per metre of spacecraft in the solar view: the model is drawn ~90 million times larger. */
+export const SHIP_SCALE = 0.06
 
 /** How many times larger than real each body is drawn. */
 export function exaggeration(body: keyof typeof DISPLAY_RADIUS): number {
   return DISPLAY_RADIUS[body] / (REAL_RADIUS_M[body] * UNITS_PER_M)
+}
+
+/** Rounds an enlargement factor for display: two significant figures. */
+export function roundFactor(x: number): number {
+  if (!(x > 0) || !Number.isFinite(x)) return NaN
+  const p = Math.pow(10, Math.floor(Math.log10(x)) - 1)
+  return Math.round(x / p) * p
+}
+
+/**
+ * The "not to scale" line: one factor for both planets (they share it), the Sun's, and with
+ * `ship` the spacecraft's. Every factor is the drawn size over the real size.
+ */
+export function scaleNote(ship: boolean): string {
+  const fmt = (x: number) => x.toLocaleString('en-US')
+  const planets = roundFactor(exaggeration('earth'))
+  const sun = roundFactor(exaggeration('sun'))
+  const sc = roundFactor(SHIP_SCALE / UNITS_PER_M)
+  return `To scale except sizes: planets ×${fmt(planets)}, Sun ×${fmt(sun)}${ship ? `, spacecraft ×${fmt(sc / 1e6)} million` : ''}.`
+}
+
+/**
+ * Writes the flown part of a sampled arc into `out`: the samples passed at fraction `frac` of the
+ * flight (whole segments only, never beyond), then one last point exactly at `end` (the ship's
+ * scene position; without it, the point interpolated at `frac`). Returns the point count.
+ * Capacity: arc points + 1.
+ */
+export function writeTrail(arc: Float32Array, frac: number, end: ArrayLike<number> | null, out: Float32Array): number {
+  const n = Math.floor(arc.length / 3)
+  if (n < 2 || out.length < 6) return 0
+  const f = Math.min(1, Math.max(0, Number.isFinite(frac) ? frac : 0))
+  const seg = n - 1
+  const k = Math.min(seg, Math.floor(seg * f + 1e-9))
+  const cap = Math.floor(out.length / 3)
+  const keep = Math.min(k + 1, cap - 1)
+  out.set(arc.subarray(0, keep * 3), 0)
+  let ex: number, ey: number, ez: number
+  if (end) {
+    ex = end[0]!
+    ey = end[1]!
+    ez = end[2]!
+  } else {
+    const u = k < seg ? seg * f - k : 0
+    const a = k * 3
+    const b = Math.min(seg, k + 1) * 3
+    ex = arc[a]! + (arc[b]! - arc[a]!) * u
+    ey = arc[a + 1]! + (arc[b + 1]! - arc[a + 1]!) * u
+    ez = arc[a + 2]! + (arc[b + 2]! - arc[a + 2]!) * u
+  }
+  if (!Number.isFinite(ex) || !Number.isFinite(ey) || !Number.isFinite(ez)) return keep
+  const l = (keep - 1) * 3
+  if (Math.hypot(ex - out[l]!, ey - out[l + 1]!, ez - out[l + 2]!) < 1e-6) return keep
+  out[keep * 3] = ex
+  out[keep * 3 + 1] = ey
+  out[keep * 3 + 2] = ez
+  return keep + 1
 }
 
 /**

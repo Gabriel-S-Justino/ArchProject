@@ -31,11 +31,11 @@ import { LabelLayer, LabelProjector, type SceneLabel } from './labels'
 import { OrbitLine } from './OrbitLine'
 import { Planet } from './Planet'
 import { InvalidateOn, clamp01, easeOut, useOnScreen } from './sceneHooks'
-import { DISPLAY_RADIUS, UNITS_PER_M, clampJd, ephemerisOrbit, exaggeration, transferArc, writeConic, writeScene } from './solarScale'
+import { DISPLAY_RADIUS, SHIP_SCALE, clampJd, ephemerisOrbit, exaggeration, scaleNote, toScene, transferArc, writeConic, writeScene } from './solarScale'
 import { SpacecraftModel } from './SpacecraftModel'
 import { spacecraftLayout } from './spacecraftLayout'
 import { Starfield } from './Starfield'
-import { DashedPath, GlowArc, RUST, TransferArc } from './TransferArc'
+import { DashedPath, RUST, TrailArc, TransferArc } from './TransferArc'
 
 export type Focus = 'sun' | 'earth' | 'mars' | 'ship'
 
@@ -65,8 +65,6 @@ export interface SolarSystemProps {
   reserveBottomRight?: boolean
 }
 
-/** Scene units per metre of spacecraft: the model is drawn about a million times larger than real. */
-const SHIP_SCALE = 0.06
 const FOV = 32
 const SDO_URL = `${import.meta.env.BASE_URL}textures/sun_sdo_aia171_2k.jpg`
 /** The solar disk spans this fraction of the SDO image's width. */
@@ -143,8 +141,6 @@ function SolarSystem(props: SolarSystemProps) {
   const options: Focus[] = hasShip ? ['sun', 'earth', 'mars', 'ship'] : ['sun', 'earth', 'mars']
   const sceneJd = clampJd(jd)
   const label = describe(sceneJd, transfer ?? null, preview ?? null, ship ?? null)
-  const exE = Math.round(exaggeration('earth') / 10) * 10
-  const exS = Math.round(exaggeration('sun'))
 
   return (
     <div ref={wrap} className="absolute inset-0 overflow-hidden">
@@ -201,7 +197,7 @@ function SolarSystem(props: SolarSystemProps) {
           <span className="text-ink-2">Ctrl + scroll to zoom</span>
         ) : (
           <>
-            To scale except sizes: planets ×{formatNumber(exE)}, Sun ×{exS}{hasShip ? `, spacecraft ×${formatNumber(Math.round(SHIP_SCALE / UNITS_PER_M / 1e7) * 10)} million` : ''}.
+            {scaleNote(hasShip)}
           </>
         )}
       </p>
@@ -279,6 +275,7 @@ function Scene({ jd, transfer, preview, arrival, ship, bodies, reduced }: SceneP
   }, [jd, arrival, ship, bodies, scratch, tmpShip, earthSun, invalidate])
 
   const frac = ship ? clamp01((jd - ship.depJd) / Math.max(1e-6, ship.arrJd - ship.depJd)) : 1
+  const shipScene = useMemo(() => (ship ? toScene(ship.state.r) : null), [ship])
   return (
     <>
       <Starfield />
@@ -295,7 +292,7 @@ function Scene({ jd, transfer, preview, arrival, ship, bodies, reduced }: SceneP
       {ship ? (
         <>
           <TransferArc transfer={transfer} variant="planned" />
-          {transfer && <GlowArc points={transferArc(transfer)} upTo={frac} />}
+          {transfer && <TrailArc points={transferArc(transfer)} frac={frac} end={shipScene} />}
           <Ship ship={ship} jd={jd} bodies={bodies} reduced={reduced} />
         </>
       ) : (

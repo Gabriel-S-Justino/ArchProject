@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, type RefObject } from 'react'
 import * as THREE from 'three'
 import { cn } from '@/lib/utils'
+import { placeLabel } from './labelPlace'
 
 export interface SceneLabel {
   key: string
@@ -35,7 +36,10 @@ export function LabelProjector({ items, els }: { items: SceneLabel[]; els: RefOb
   const v = useMemo(() => new THREE.Vector3(), [])
   // Mount after the camera rig (same priority, subscription order); refresh the camera's matrices
   // so the labels sit where this frame draws the bodies.
+  const sizes = useMemo<([number, number] | undefined)[]>(() => [], [items])
+  const frame = useMemo(() => ({ n: 0 }), [])
   useFrame(({ camera, size }) => {
+    frame.n++
     camera.updateMatrixWorld()
     for (let i = 0; i < items.length; i++) {
       const el = els.current[i]
@@ -51,12 +55,12 @@ export function LabelProjector({ items, els }: { items: SceneLabel[]; els: RefOb
       if (!inside) continue
       const x = ((v.x + 1) / 2) * size.width
       const y = ((1 - v.y) / 2) * size.height
-      el.style.transform =
-        l.side === 'left'
-          ? `translate(${(x - 9).toFixed(1)}px, ${(y + 9).toFixed(1)}px) translateX(-100%)`
-          : l.side === 'below'
-            ? `translate(${x.toFixed(1)}px, ${(y + 12).toFixed(1)}px) translateX(-50%)`
-            : `translate(${(x + 9).toFixed(1)}px, ${(y - 9).toFixed(1)}px) translateY(-100%)`
+      // Label size, measured once (and again every ~2 s, for late font loads); reading it every
+      // frame would force a layout per label.
+      if (!sizes[i] || frame.n % 120 === 0) sizes[i] = [el.offsetWidth, el.offsetHeight]
+      const [w, h] = sizes[i]!
+      const pos = placeLabel(l.side ?? 'right', x, y, w, h, size.width, size.height)
+      el.style.transform = `translate(${pos[0].toFixed(1)}px, ${pos[1].toFixed(1)}px)`
     }
   })
   return null

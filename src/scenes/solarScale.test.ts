@@ -3,6 +3,7 @@ import { AU, MU_SUN } from '@/physics/constants'
 import { EPHEMERIS_RANGE, bodyState } from '@/physics/ephemeris'
 import { transferFor } from '@/physics/porkchop'
 import { jdFromIso } from '@/physics/time'
+import { propagate } from '@/physics/kepler'
 import type { StateVector } from '@/physics/vec'
 import {
   ARC_POINTS,
@@ -13,6 +14,11 @@ import {
   conicPoints,
   ephemerisOrbit,
   exaggeration,
+  roundFactor,
+  scaleNote,
+  SHIP_SCALE,
+  UNITS_PER_M,
+  writeTrail,
   toScene,
   transferArc,
   writeConic,
@@ -20,6 +26,7 @@ import {
   writeScene,
 } from './solarScale'
 
+const propagateDays = (t: { r1: [number, number, number]; v1: [number, number, number] }, d: number) => propagate({ r: t.r1, v: t.v1 }, MU_SUN, d * 86400).r
 const len = (a: ArrayLike<number>, i = 0) => Math.hypot(a[i]!, a[i + 1]!, a[i + 2]!)
 const dot = (a: number[], b: number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!
 
@@ -143,5 +150,71 @@ describe('body orientation', () => {
     const a = bodyBasis('earth', jd)
     const b = bodyBasis('earth', jd + 0.99726958)
     expect(dot(a.x, b.x)).toBeCloseTo(1, 4)
+  })
+})
+
+describe('display scale', () => {
+  it('draws both planets at one enlargement, so Mars keeps its real size relative to the Earth', () => {
+    expect(exaggeration('mars')).toBeCloseTo(exaggeration('earth'), 9)
+    expect(DISPLAY_RADIUS.mars / DISPLAY_RADIUS.earth).toBeCloseTo(3389.5 / 6371, 6)
+  })
+
+  it('the note states each factor as drawn (two significant figures)', () => {
+    const note = scaleNote(true)
+    const num = (re: RegExp) => Number(note.match(re)![1]!.replace(/,/g, ''))
+    const planets = num(/planets ×([\d,]+)/)
+    const sun = num(/Sun ×([\d,]+)/)
+    const ship = num(/spacecraft ×([\d,]+) million/) * 1e6
+    for (const body of ['earth', 'mars'] as const) expect(Math.abs(planets / exaggeration(body) - 1)).toBeLessThan(0.05)
+    expect(Math.abs(sun / exaggeration('sun') - 1)).toBeLessThan(0.05)
+    expect(Math.abs(ship / (SHIP_SCALE / UNITS_PER_M) - 1)).toBeLessThan(0.05)
+    expect(scaleNote(false)).not.toMatch(/spacecraft/)
+  })
+
+  it('rounds factors to two significant figures', () => {
+    expect(roundFactor(352.4)).toBe(350)
+    expect(roundFactor(12.9)).toBe(13)
+    expect(roundFactor(8.98e7)).toBe(9e7)
+    expect(roundFactor(NaN)).toBeNaN()
+  })
+})
+
+describe('flown trail', () => {
+  // A straight arc of 5 points along x: 0, 10, 20, 30, 40.
+  const arc = new Float32Array([0, 0, 0, 10, 0, 0, 20, 0, 0, 30, 0, 0, 40, 0, 0])
+  const out = new Float32Array((5 + 1) * 3)
+
+  it('ends exactly at the ship and never passes it', () => {
+    const ship = [23, 0.5, 0]
+    const n = writeTrail(arc, 0.58, ship, out) // 0.58 of 4 segments = 2.32: samples 0..2, then the ship
+    expect(n).toBe(4)
+    expect([...out.subarray(6, 9)]).toEqual([20, 0, 0])
+    expect(out[9]).toBe(23)
+    expect(out[10]).toBeCloseTo(0.5)
+    for (let i = 0; i < n - 1; i++) expect(out[i * 3]!).toBeLessThanOrEqual(23)
+  })
+
+  it('interpolates the end without a ship, and handles the ends of the flight', () => {
+    expect(writeTrail(arc, 0.5, null, out)).toBe(3) // exactly on sample 2: no extra point
+    expect(writeTrail(arc, 0.6, null, out)).toBe(4)
+    expect(out[9]).toBeCloseTo(24)
+    expect(writeTrail(arc, 0, [1, 0, 0], out)).toBe(2)
+    expect(writeTrail(arc, 1, [40, 0, 0], out)).toBe(5)
+    expect(writeTrail(arc, 1, [40.5, 0, 0], out)).toBe(6)
+    expect(writeTrail(arc, 0.3, [NaN, 0, 0], out)).toBe(2)
+  })
+
+  it('a real transfer: the trail ends at the propagated ship position', () => {
+    const t = transferFor(jdFromIso('2026-10-31T00:00:00Z'), jdFromIso('2027-08-20T00:00:00Z'))!
+    const a = transferArc(t)
+    const buf = new Float32Array(a.length + 3)
+    const shipR = toScene(propagateDays(t, 100))
+    const n = writeTrail(a, 100 / t.tofDays, shipR, buf)
+    const e = (n - 1) * 3
+    expect(Math.hypot(buf[e]! - shipR[0], buf[e + 1]! - shipR[1], buf[e + 2]! - shipR[2])).toBeLessThan(1e-4)
+    // The last full sample is behind the ship (within one segment), not past it.
+    const seg = Math.hypot(a[3]! - a[0]!, a[4]! - a[1]!, a[5]! - a[2]!)
+    const p = (n - 2) * 3
+    expect(Math.hypot(buf[p]! - shipR[0], buf[p + 1]! - shipR[1], buf[p + 2]! - shipR[2])).toBeLessThan(seg * 1.5)
   })
 })

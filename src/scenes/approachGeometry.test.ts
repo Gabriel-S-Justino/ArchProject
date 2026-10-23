@@ -5,6 +5,7 @@ import {
   directionAt,
   ellipse,
   ellipseNu,
+  ellipseTraced,
   ellipsePoints,
   hyperbola,
   hyperbolaNu,
@@ -86,5 +87,33 @@ describe('capture ellipse', () => {
     const pts = ellipsePoints(el, 65)
     expect(pts[0]).toBeCloseTo(pts[128]!, 3)
     expect(pts[1]).toBeCloseTo(pts[129]!, 3)
+  })
+})
+
+describe('ellipse trace', () => {
+  const el = ellipse(RP, RA, MU_MARS)
+  const SEG = 240 // segments of the 241-point ellipse the arrival scene draws
+
+  it('ends at the spacecraft (within one sample) all through the first orbit', () => {
+    for (const k of [0.02, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9, 0.99]) {
+      const t = k * el.period
+      const drawn = Math.round(SEG * ellipseTraced(el, t))
+      const endNu = (2 * Math.PI * drawn) / SEG
+      let ship = ellipseNu(el, t)
+      if (ship < 0) ship += 2 * Math.PI
+      expect(Math.abs(endNu - ship)).toBeLessThanOrEqual((2 * Math.PI) / SEG)
+    }
+  })
+
+  it('is empty before periapsis and complete after one orbit', () => {
+    expect(ellipseTraced(el, 0)).toBe(0)
+    expect(ellipseTraced(el, -10)).toBe(0)
+    expect(ellipseTraced(el, el.period)).toBe(1)
+    expect(ellipseTraced(el, 3 * el.period)).toBe(1)
+  })
+
+  it('runs ahead of the time fraction early (fast past periapsis) and behind it late', () => {
+    expect(ellipseTraced(el, 0.1 * el.period)).toBeGreaterThan(0.1)
+    expect(ellipseTraced(el, 0.9 * el.period)).toBeLessThan(0.9)
   })
 })

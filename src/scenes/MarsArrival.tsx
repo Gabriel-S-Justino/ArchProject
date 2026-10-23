@@ -22,7 +22,7 @@ import { formatNumber } from '@/components/status'
 import { MISSION } from '@/data/mission'
 import type { SpacecraftDesign } from '@/game/spacecraft'
 import { MU_MARS, R_MARS } from '@/physics/constants'
-import { directionAt, ellipse, ellipseNu, ellipsePoints, hyperbola, hyperbolaNu, hyperbolaPoints, hyperbolaTime, nuAtRadius, pointAt } from './approachGeometry'
+import { directionAt, ellipse, ellipseNu, ellipseTraced, ellipsePoints, hyperbola, hyperbolaNu, hyperbolaPoints, hyperbolaTime, nuAtRadius, pointAt } from './approachGeometry'
 import { DevStats } from './DevStats'
 import './threeSetup'
 import { PLANET_TEXTURE } from './Planet'
@@ -151,7 +151,7 @@ interface Pose {
   /** Real seconds since periapsis, for Mars' spin. */
   tReal: number
   throttle: number
-  /** First-orbit fraction traced (0..1), and whether the ellipse is the trajectory now. */
+  /** Fraction of the ellipse's (anomaly-spaced) samples flown in the first orbit, 0..1; whether the ellipse is the trajectory now. */
   traced: number
   onEllipse: boolean
   /** Fraction of the hyperbola points flown. */
@@ -224,7 +224,7 @@ function poseAt(g: Geometry, captured: boolean | null, mode: 'arrival' | 'orbit'
     // Shared periapsis: the spacecraft creeps along the ellipse while it brakes.
     ellPose(g, p.tReal, p)
     p.throttle = clamp01(sb / 0.25) * (1 - clamp01((sb - (T_BURN - 0.3)) / 0.3))
-    p.traced = p.tReal / g.el.period
+    p.traced = ellipseTraced(g.el, p.tReal)
     p.onEllipse = true
     p.hypFlown = 0.5
     return p
@@ -232,7 +232,7 @@ function poseAt(g: Geometry, captured: boolean | null, mode: 'arrival' | 'orbit'
   p.phase = 'orbit'
   p.tReal = orbitTime(sb - T_BURN)
   ellPose(g, p.tReal, p)
-  p.traced = Math.min(1, p.tReal / g.el.period)
+  p.traced = ellipseTraced(g.el, p.tReal)
   p.onEllipse = true
   p.hypFlown = 0.5
   return p

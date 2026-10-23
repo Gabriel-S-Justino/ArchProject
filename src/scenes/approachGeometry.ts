@@ -121,6 +121,19 @@ export function ellipseNu(el: Ellipse, t: number): number {
 }
 
 /**
+ * How much of the ellipse is flown `t` seconds after periapsis, as a fraction of its samples (which
+ * ellipsePoints spaces evenly in true anomaly): ν/2π during the first orbit, 1 once it is complete.
+ * The trace then ends at the spacecraft, fast past periapsis and slow at apoapsis.
+ */
+export function ellipseTraced(el: Ellipse, t: number): number {
+  if (!(t > 0)) return 0
+  if (t >= el.period) return 1
+  let nu = ellipseNu(el, t)
+  if (nu < 0) nu += 2 * Math.PI
+  return nu / (2 * Math.PI)
+}
+
+/**
  * `n` points of the hyperbola between true anomalies nu0 and nu1 (orbit plane, m), written as
  * x, y pairs. Both anomalies are clamped inside the asymptotes.
  */
