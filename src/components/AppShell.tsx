@@ -2,7 +2,7 @@ import { BookOpen, Check, Lock } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { missionClock } from '@/app/missionClock'
-import { useGame, useTransfer } from '@/app/store'
+import { useGame, useTransfer, type DesignTab } from '@/app/store'
 import { canEnter, type GameSnapshot, type Phase } from '@/game/flow'
 import { cn } from '@/lib/utils'
 import { formatJd } from '@/physics/time'
@@ -27,6 +27,13 @@ const LOCK_REASON: Partial<Record<Phase, string>> = {
   arrival: 'Opens after launch',
   ops: 'Opens after arrival at Mars',
   report: 'Opens after launch',
+}
+
+/** In the design workspace the panel shows the concepts of the open tab, in journey order. */
+const TAB_CONCEPTS: Record<DesignTab, string[]> = {
+  trajectory: ['hohmann', 'phase-angle', 'lambert', 'porkchop', 'c3', 'capture'],
+  rocket: ['c3', 'rocket-equation', 'twr', 'gravity-losses', 'staging', 'parallel-staging', 'upper-stage-twr', 'launch-margin'],
+  spacecraft: ['launch-margin', 'capture', 'inverse-square', 'link-budget'],
 }
 
 const PANEL_KEY = 'mission-architect:physics-panel-collapsed'
@@ -58,6 +65,7 @@ export interface AppShellProps {
  */
 export function AppShell({ renderScreen }: AppShellProps) {
   const phase = useGame((s) => s.phase)
+  const designTab = useGame((s) => s.designTab)
   const [collapsed, setCollapsed] = useState(readCollapsed)
   const showPanel = phase !== 'sources'
   const mainRef = useRef<HTMLElement>(null)
@@ -106,7 +114,12 @@ export function AppShell({ renderScreen }: AppShellProps) {
               transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
             >
               <div className="h-full" style={{ width: collapsed ? 'var(--rail-w)' : 'var(--panel-w)' }}>
-                <PhysicsPanel phase={phase} collapsed={collapsed} onCollapsedChange={onCollapsedChange} />
+                <PhysicsPanel
+                  phase={phase}
+                  conceptIds={phase === 'design' ? TAB_CONCEPTS[designTab] : undefined}
+                  collapsed={collapsed}
+                  onCollapsedChange={onCollapsedChange}
+                />
               </div>
             </motion.aside>
           )}
@@ -118,6 +131,8 @@ export function AppShell({ renderScreen }: AppShellProps) {
 
 function TopBar() {
   const phase = useGame((s) => s.phase)
+  // A new mission (reset) remounts the stepper, so stations reached in the last game are forgotten.
+  const epoch = useGame((s) => s.epoch)
   const setPhase = useGame((s) => s.setPhase)
   const transfer = useTransfer()
   const clock = missionClock(phase, transfer)
@@ -138,7 +153,7 @@ function TopBar() {
         </span>
       </button>
 
-      <PhaseStepper />
+      <PhaseStepper key={epoch} />
 
       <div className="flex shrink-0 items-center gap-5">
         <div className="flex flex-col items-end justify-center" aria-live="polite">

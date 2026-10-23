@@ -8,6 +8,7 @@ import { SIMPLIFICATIONS } from '@/data/concepts'
 import { DATA_SOURCES } from '@/data/sources'
 import type { DataSource } from '@/game/types'
 import type { Phase } from '@/game/flow'
+import { slug } from '@/lib/slug'
 
 const GROUPS: { name: string; match: (id: string) => boolean }[] = [
   { name: 'Trajectory', match: (id) => id.startsWith('horizons') || id.startsWith('porkchop') },
@@ -65,8 +66,8 @@ export function Sources({ backTo, onBack }: SourcesProps) {
       </p>
 
       {groups.map((g) => (
-        <section key={g.name} className="mt-12" aria-labelledby={`group-${g.name}`}>
-          <h2 id={`group-${g.name}`} className="border-b border-rule-strong pb-2 text-title font-semibold [font-stretch:88%]">
+        <section key={g.name} className="mt-12" aria-labelledby={`group-${slug(g.name)}`}>
+          <h2 id={`group-${slug(g.name)}`} className="border-b border-rule-strong pb-2 text-title font-semibold [font-stretch:88%]">
             {g.name}
           </h2>
           <ol>

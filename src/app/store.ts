@@ -12,7 +12,7 @@ import { spacecraftStats, type SpacecraftDesign, type SpacecraftStats } from '@/
 import { AU } from '@/physics/constants'
 import { bodyState } from '@/physics/ephemeris'
 import { capacityToC3, rocketStats, type RocketDesign, type RocketStats } from '@/physics/launcher'
-import { transferFor, type PorkchopGrid, type Transfer } from '@/physics/porkchop'
+import { DEFAULT_PORKCHOP, transferFor, type PorkchopGrid, type TofLimits, type Transfer } from '@/physics/porkchop'
 import { computePorkchopAsync } from '@/physics/porkchopClient'
 import { norm } from '@/physics/vec'
 import {
@@ -29,6 +29,9 @@ export { defaultDesign }
 
 export type PorkchopStatus = 'idle' | 'loading' | 'ready' | 'error'
 
+/** The three tabs of the design workspace (Task 12). */
+export type DesignTab = 'trajectory' | 'rocket' | 'spacecraft'
+
 export interface GameState {
   phase: Phase
   design: MissionDesign
@@ -38,6 +41,10 @@ export interface GameState {
   porkchopStatus: PorkchopStatus
   /** The porkchop cell under the pointer, for previews; not part of the design. */
   hoverTransfer: Transfer | null
+  /** The design workspace tab last shown; remembered while the player visits other screens. UI state, not design. */
+  designTab: DesignTab
+  /** Counts new games (reset); UI that remembers progress (the phase stepper) starts over when it changes. */
+  epoch: number
   launched: boolean
   arrived: boolean
   opsDone: boolean
@@ -53,6 +60,7 @@ export interface GameState {
   next: () => boolean
   setTransfer: (t: { depJd: number; arrJd: number } | null) => void
   setHoverTransfer: (t: Transfer | null) => void
+  setDesignTab: (tab: DesignTab) => void
   setRocket: (r: RocketDesign) => void
   setSpacecraft: (s: SpacecraftDesign) => void
   /** Replaces the rocket (only) with a copy of the preset's; false for an unknown id. */
@@ -67,7 +75,18 @@ export interface GameState {
 
 type GameData = Pick<
   GameState,
-  'phase' | 'design' | 'seed' | 'launched' | 'arrived' | 'opsDone' | 'hoverTransfer' | 'launch' | 'cruise' | 'ops' | 'result'
+  | 'phase'
+  | 'design'
+  | 'seed'
+  | 'launched'
+  | 'arrived'
+  | 'opsDone'
+  | 'hoverTransfer'
+  | 'designTab'
+  | 'launch'
+  | 'cruise'
+  | 'ops'
+  | 'result'
 >
 
 function gameData(start: DevStartState): GameData {
@@ -79,6 +98,7 @@ function gameData(start: DevStartState): GameData {
     arrived: start.arrived,
     opsDone: start.opsDone,
     hoverTransfer: null,
+    designTab: 'trajectory',
     launch: null,
     cruise: null,
     ops: null,
@@ -99,6 +119,7 @@ export const useGame = create<GameState>()((set, get) => ({
   ...gameData(devStartState(initialDevParams())),
   porkchop: null,
   porkchopStatus: 'idle',
+  epoch: 0,
 
   setPhase: (p) => {
     const s = get()
@@ -110,7 +131,10 @@ export const useGame = create<GameState>()((set, get) => ({
 
   setTransfer: (t) =>
     set((s) => ({ design: { ...s.design, transfer: t ? { depJd: t.depJd, arrJd: t.arrJd } : null } })),
-  setHoverTransfer: (t) => set({ hoverTransfer: t }),
+  setHoverTransfer: (t) => {
+    if (get().hoverTransfer !== t) set({ hoverTransfer: t })
+  },
+  setDesignTab: (tab) => set({ designTab: tab }),
   setRocket: (r) => set((s) => ({ design: { ...s.design, rocket: copyRocket(r) } })),
   setSpacecraft: (sc) => set((s) => ({ design: { ...s.design, spacecraft: copySpacecraft(sc) } })),
   applyPreset: (presetId) => {
@@ -146,7 +170,7 @@ export const useGame = create<GameState>()((set, get) => ({
     set({ porkchop: null, porkchopStatus: 'idle' })
   },
 
-  reset: () => set((s) => gameData(devStartState({ ...DEFAULT_DEV_PARAMS, seed: s.seed }))),
+  reset: () => set((s) => ({ ...gameData(devStartState({ ...DEFAULT_DEV_PARAMS, seed: s.seed })), epoch: s.epoch + 1 })),
 }))
 
 // ---------------------------------------------------------------------------------------------
@@ -164,11 +188,11 @@ type DesignState = Pick<GameState, 'design'>
 const transferMemo = new Map<string, Transfer | null>()
 const TRANSFER_MEMO_MAX = 256
 
-export function memoTransfer(depJd: number, arrJd: number): Transfer | null {
-  const key = `${depJd}|${arrJd}`
+export function memoTransfer(depJd: number, arrJd: number, limits: TofLimits = DEFAULT_PORKCHOP): Transfer | null {
+  const key = `${depJd}|${arrJd}|${limits.minTofDays}|${limits.maxTofDays}`
   if (transferMemo.has(key)) return transferMemo.get(key) ?? null
   if (transferMemo.size >= TRANSFER_MEMO_MAX) transferMemo.clear()
-  const t = transferFor(depJd, arrJd)
+  const t = transferFor(depJd, arrJd, limits)
   transferMemo.set(key, t)
   return t
 }
@@ -192,8 +216,20 @@ export function selectRocketStats(s: DesignState): RocketStats {
   return rocketStats(s.design.rocket, selectSpacecraftStats(s).wetKg)
 }
 
+/**
+ * launchChecklist memoised on the design object's identity. Store actions never mutate a design,
+ * they replace it, so a new reference is exactly "the design changed" and the checklist is
+ * recomputed from scratch (Review Focus 2); several components reading it share one evaluation.
+ */
+const checklistMemo = new WeakMap<MissionDesign, CheckItem[]>()
+
 export function selectChecklist(s: DesignState): CheckItem[] {
-  return launchChecklist(s.design)
+  let items = checklistMemo.get(s.design)
+  if (!items) {
+    items = launchChecklist(s.design)
+    checklistMemo.set(s.design, items)
+  }
+  return items
 }
 
 export function selectCanLaunch(s: DesignState): boolean {
@@ -208,24 +244,52 @@ function useDerived<T>(select: (s: DesignState) => T): T {
   return useMemo(() => select({ design }), [design, select])
 }
 
-/** Payload (kg) the rocket can send to the chosen transfer's C3; 0 without a transfer (capacityToC3 bisection). */
+/**
+ * capacityToC3 (a ~18-step bisection over rocketStats) memoised per rocket object and C3. Rocket
+ * designs are never mutated in place (setRocket copies), so the object identity stands for its
+ * contents; the WeakMap lets old designs be collected.
+ */
+const capacityMemo = new WeakMap<RocketDesign, Map<number, number>>()
+const CAPACITY_MEMO_PER_ROCKET = 64
+
+export function capacityKgFor(rocket: RocketDesign, c3: number): number {
+  let byC3 = capacityMemo.get(rocket)
+  if (!byC3) {
+    byC3 = new Map()
+    capacityMemo.set(rocket, byC3)
+  }
+  const hit = byC3.get(c3)
+  if (hit !== undefined) return hit
+  if (byC3.size >= CAPACITY_MEMO_PER_ROCKET) byC3.clear()
+  const kg = capacityToC3(rocket, c3)
+  byC3.set(c3, kg)
+  return kg
+}
+
+/** Payload (kg) the rocket can send to the chosen transfer's C3; 0 without a transfer. */
 export function selectCapacityKg(s: DesignState): number {
   const t = selectTransfer(s)
-  return t ? capacityToC3(s.design.rocket, t.c3) : 0
+  return t ? capacityKgFor(s.design.rocket, t.c3) : 0
 }
 
 export const useTransfer = () => useDerived(selectTransfer)
 export const useSpacecraftStats = () => useDerived(selectSpacecraftStats)
 export const useRocketStats = () => useDerived(selectRocketStats)
 export const useChecklist = () => useDerived(selectChecklist)
-export const useCanLaunch = () => useDerived(selectCanLaunch)
+export function useCanLaunch(): boolean {
+  const items = useChecklist()
+  return useMemo(() => items.every((i) => i.ok), [items])
+}
 export const useCapacityKg = () => useDerived(selectCapacityKg)
 
 // ---------------------------------------------------------------------------------------------
 // GameView (ruling R4): the store's data plus everything derived from the design, as one read-only
-// snapshot. The Physics panel's CONCEPTS[*].live(view) and later screens read it.
+// snapshot. The Physics panel's CONCEPTS[*].live(view) and later screens read it. It deliberately
+// leaves out the pointer state (hoverTransfer) and UI state (designTab): the panel re-renders with
+// the view, and hovering the porkchop plot must not re-render it. `porkchop` stays: it changes once,
+// when the grid arrives.
 
-/** The store's data fields (no actions). */
+/** The store's data fields (no actions, no pointer or UI state). */
 export type GameViewState = Pick<
   GameState,
   | 'phase'
@@ -233,7 +297,6 @@ export type GameViewState = Pick<
   | 'seed'
   | 'porkchop'
   | 'porkchopStatus'
-  | 'hoverTransfer'
   | 'launched'
   | 'arrived'
   | 'opsDone'
@@ -271,7 +334,6 @@ const selectViewState = (s: GameState): GameViewState => ({
   seed: s.seed,
   porkchop: s.porkchop,
   porkchopStatus: s.porkchopStatus,
-  hoverTransfer: s.hoverTransfer,
   launched: s.launched,
   arrived: s.arrived,
   opsDone: s.opsDone,

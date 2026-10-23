@@ -342,10 +342,11 @@ export const CONCEPTS: Concept[] = [
       const t = v.transfer
       if (!t) return `Spacecraft ${fmt(wet)} kg. Pick a transfer to size the rocket for its C3.`
       const cap = v.capacityKg
-      if (cap <= 0) return `Spacecraft ${fmt(wet)} kg, but this rocket cannot reach C3 ${fmt(t.c3, 2)} km²/s² at all.`
+      if (cap <= 0) return `NO-GO: spacecraft ${fmt(wet)} kg, but this rocket cannot reach C3 ${fmt(t.c3, 2)} km²/s² at all.`
       const limit = MISSION.launchMargin * cap
       const margin = (1 - wet / cap) * 100
-      return `Spacecraft ${fmt(wet)} kg vs limit ${fmt(limit)} kg (90% of ${fmt(cap)} kg at C3 ${fmt(t.c3, 2)}): margin ${fmt(margin, 1)}%.`
+      const verdict = wet <= limit ? 'GO' : 'NO-GO'
+      return `${verdict}: spacecraft ${fmt(wet)} kg vs limit ${fmt(limit)} kg (90% of ${fmt(cap)} kg at C3 ${fmt(t.c3, 2)}), margin ${fmt(margin, 1)}% (needs ≥ 10%).`
     }),
   },
   {

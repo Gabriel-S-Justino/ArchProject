@@ -1,5 +1,6 @@
 // Main-thread helper that runs computePorkchop in a Web Worker (bundled by Vite through the
-// `new URL(..., import.meta.url)` pattern). One short-lived worker per call.
+// `new URL(..., import.meta.url)` pattern). One short-lived worker per call. Stale results (a
+// request superseded before it returns) are dropped by the store's request id.
 import type { PorkchopGrid, PorkchopRequest, PorkchopSpec } from './porkchop'
 
 export function computePorkchopAsync(spec?: PorkchopSpec): Promise<PorkchopGrid> {
@@ -12,6 +13,11 @@ export function computePorkchopAsync(spec?: PorkchopSpec): Promise<PorkchopGrid>
     worker.onerror = (event: ErrorEvent) => {
       worker.terminate()
       reject(new Error(event.message || 'Porkchop worker failed'))
+    }
+    // The grid could not be deserialised (structured clone failed): fail instead of hanging.
+    worker.onmessageerror = () => {
+      worker.terminate()
+      reject(new Error('Porkchop worker sent a message that could not be read'))
     }
     const request: PorkchopRequest = { spec }
     worker.postMessage(request)

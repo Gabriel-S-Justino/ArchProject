@@ -12,7 +12,6 @@ function viewOf(design: MissionDesign) {
     seed: 1,
     porkchop: null,
     porkchopStatus: 'idle',
-    hoverTransfer: null,
     launched: false,
     arrived: false,
     opsDone: false,

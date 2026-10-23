@@ -219,3 +219,46 @@ describe('loadPorkchop', () => {
     expect(useGame.getState().porkchopStatus).toBe('ready')
   })
 })
+
+describe('derived-value memos (Task 12)', () => {
+  it('capacityKgFor caches per rocket object and C3, and a new rocket recomputes', async () => {
+    const { capacityKgFor } = await import('./store')
+    const { capacityToC3 } = await import('@/physics/launcher')
+    const r = structuredClone(presetById('atlas-v-401')!.rocket)
+    const a = capacityKgFor(r, 9.2)
+    expect(a).toBe(capacityToC3(r, 9.2))
+    expect(capacityKgFor(r, 9.2)).toBe(a)
+    expect(capacityKgFor(r, 20)).toBeLessThan(a)
+    const heavier = { ...r, stages: r.stages.map((s, i) => (i === 0 ? { ...s, boosterId: 'gem-63', boosterCount: 2 } : s)) }
+    expect(capacityKgFor(heavier, 9.2)).toBe(capacityToC3(heavier, 9.2))
+    expect(capacityKgFor(heavier, 9.2)).not.toBe(a)
+  })
+
+  it('the checklist is shared for one design and recomputed for the next (Review Focus 2)', () => {
+    const g = useGame.getState()
+    g.setTransfer(REFERENCE_DESIGN.transfer)
+    g.setSpacecraft(REFERENCE_DESIGN.spacecraft)
+    const first = selectChecklist(useGame.getState())
+    expect(selectChecklist(useGame.getState())).toBe(first)
+    expect(selectCanLaunch(useGame.getState())).toBe(true)
+    // break the rocket: the next read is a fresh evaluation and launch re-locks
+    g.setRocket({ ...REFERENCE_DESIGN.rocket, stages: [] })
+    const second = selectChecklist(useGame.getState())
+    expect(second).not.toBe(first)
+    expect(second.find((i) => i.id === 'rocket-valid')!.ok).toBe(false)
+    expect(selectCanLaunch(useGame.getState())).toBe(false)
+  })
+
+  it('hover does not replace the design, the design tab is remembered, reset starts a new epoch', () => {
+    const g = useGame.getState()
+    const design = useGame.getState().design
+    g.setHoverTransfer(null)
+    expect(useGame.getState().design).toBe(design)
+    g.setDesignTab('spacecraft')
+    expect(useGame.getState().designTab).toBe('spacecraft')
+    const epoch = useGame.getState().epoch
+    useGame.getState().reset()
+    expect(useGame.getState().designTab).toBe('trajectory')
+    expect(useGame.getState().epoch).toBe(epoch + 1)
+  })
+})
