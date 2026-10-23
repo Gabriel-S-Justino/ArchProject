@@ -248,7 +248,7 @@ Estes números não vêm de dados publicados. Foram escolhidos para o jogo funci
 | Turnos de operação | 6 de 30 dias | `mission.ts` |
 | Meta de ciência | 100 pontos | `mission.ts` |
 | Buffer interno de dados | 40 Gbit | `mission.ts` |
-| Cruzeiro máximo / zona de encontro | 600 dias / 2× a SOI de Marte (sem uso na lógica do cruzeiro hoje) | `mission.ts` |
+| Cruzeiro máximo | 600 dias (sem uso na lógica do cruzeiro hoje) | `mission.ts` |
 | Coifas | pequena 1.500 kg, US$ 3 M; grande 2.500 kg, US$ 5 M | `src/physics/launcher.ts` |
 | Limites do foguete | 3 estágios, 1–9 motores por estágio, 0–6 boosters | `launcher.ts` |
 | Custo dos motores (US$ M cada) | RD-180 30; Merlin 1D 2,5; Merlin Vacuum 4; RS-25D 60; RL10C-1 14; RL10C-1-1 15; BE-4 18 | `engines.ts` |

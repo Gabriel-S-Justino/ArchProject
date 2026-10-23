@@ -32,5 +32,5 @@ A spec é o documento de intenção; o código evoluiu durante a construção. A
 - **Operações.** Por turno, o jogador escolhe quais instrumentos ligar; a prioridade de downlink não é uma escolha separada.
 - **Mira das correções.** As TCMs miram o centro de Marte (não um ponto no plano B); a captura assume periapse de 300 km. Isso aparece no jogo como "aim error" e na lista "How the game simplifies".
 - **Escudo de micrometeoroides.** Hoje só adiciona massa e custo; não tem efeito em eventos.
-- **Esfera de influência.** O cartão de física "Sphere of influence" descreve uma troca de corpo central a 2× a SOI que o código não faz: a captura usa a regra de distância ≤ 10.000 km no dia de chegada. Correção pendente no texto do cartão.
+- **Esfera de influência.** A spec previa uma "zona de encontro" a 2× a SOI. O jogo não rastreia a travessia: no dia de chegada verifica o erro de mira (≤ 10.000 km do centro de Marte) e passa para uma hipérbole centrada em Marte para a captura. O cartão "Sphere of influence" explica isso.
 - **Validação do porkchop.** Adicionada depois da revisão final: C3 mínimo de 9,18 km²/s² (31/10/2026 → 20/08/2027) contra 9,144 do *Interplanetary Mission Design Handbook* da NASA (NASA/TM-2010-216764, Tabela 2).

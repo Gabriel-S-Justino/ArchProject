@@ -594,6 +594,6 @@ Outras simplificações visíveis no código: TDB tratado como UTC (cerca de 69 
 | Meta de ciência | 100 pontos | `MISSION.scienceTarget` |
 | Fórmula de pontuação e estrelas | multiplicador 1,5; −5 por 10 dias em modo de segurança; 3 estrelas com ≥ 20% do orçamento | `scoring.ts` |
 | Faixa de tempo de voo do porkchop | 100 a 500 dias | `DEFAULT_PORKCHOP` |
-| `maxCruiseDays`, `encounterSoiFactor` | 600 dias; 2× a SOI | `MISSION` (hoje sem uso na lógica do cruzeiro; ver nota abaixo) |
+| `maxCruiseDays` | 600 dias | `MISSION` (hoje sem uso na lógica do cruzeiro) |
 
-Nota: `MISSION.encounterSoiFactor` só aparece no texto do cartão "Sphere of influence" em `concepts.ts`, que diz que o jogo começa o encontro a 2× a SOI e troca o corpo central ao cruzar a fronteira. A lógica de `cruise.ts` não faz essa troca: propaga só em torno do Sol até a data de chegada e decide a captura pela regra de 10.000 km.
+Nota sobre a esfera de influência: o jogo não rastreia a travessia da SOI. `cruise.ts` propaga a nave só em torno do Sol até a data de chegada; ali verifica o erro de mira (≤ 10.000 km do centro de Marte, bem dentro da SOI de 577.000 km) e, se estiver dentro, monta a hipérbole centrada em Marte para a queima de captura. O cartão "Sphere of influence" em `concepts.ts` descreve exatamente isso.

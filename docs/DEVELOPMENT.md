@@ -266,7 +266,7 @@ Limites do modelo também pesam: Lambert de uma revolução, sem assistência gr
 
 | Onde | O quê |
 |---|---|
-| `src/data/mission.ts`, `MISSION` | `budgetM` (900), `launchMargin` (0,9), `opsTurns` (6), `turnDays` (30), `scienceTarget` (100), `bufferGbit` (40), `minLiftoffTwr` (1,1), `maxCruiseDays` (600), `encounterSoiFactor` (2) |
+| `src/data/mission.ts`, `MISSION` | `budgetM` (900), `launchMargin` (0,9), `opsTurns` (6), `turnDays` (30), `scienceTarget` (100), `bufferGbit` (40), `minLiftoffTwr` (1,1), `maxCruiseDays` (600) |
 | `src/data/mission.ts`, modelo de subida | `ASCENT_DV` (9.400 m/s), `GRAVITY_LOSS_K` (3.000), `GRAVITY_LOSS_MAX_TWR` (2,5), `UPPER_STAGE_MIN_TWR` (0,25) |
 | `src/data/spacecraftParts.ts` | `costM`, `science`, `dataGbPerTurn` de cada peça |
 | `src/data/engines.ts`, `src/data/tanks.ts` | `costM` dos motores; modelo `COST` dos tanques |

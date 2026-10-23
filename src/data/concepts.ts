@@ -7,7 +7,7 @@ import type { GameView } from '@/app/store'
 import { boosterById } from '@/data/boosters'
 import { engineById } from '@/data/engines'
 import { ASCENT_DV, ASCENT_REFERENCE_TWR, GRAVITY_LOSS_K, GRAVITY_LOSS_MAX_TWR, MISSION } from '@/data/mission'
-import { TCM_WINDOWS, INJECTION_ERROR_SIGMA_MS } from '@/game/cruise'
+import { CAPTURE_MAX_MISS_KM, TCM_WINDOWS, INJECTION_ERROR_SIGMA_MS } from '@/game/cruise'
 import type { Phase } from '@/game/flow'
 import { sunEarthMarsAngleDeg } from '@/game/ops'
 import { MARS_MEAN_DISTANCE_AU } from '@/game/spacecraft'
@@ -473,12 +473,12 @@ export const CONCEPTS: Concept[] = [
     title: 'Sphere of influence',
     formula: 'r_SOI = a · (m / M)^(2/5)',
     plain:
-      'Close to Mars, Mars’ gravity beats the Sun’s. The game switches which body the orbit belongs to when the spacecraft crosses that border (patched conics).',
+      'Close to Mars, Mars’ gravity beats the Sun’s. Mission designers stitch two orbits together at that border: one around the Sun, one around Mars (patched conics). The game does the same in two steps: the cruise is an orbit around the Sun up to the arrival date, then the capture is an orbit around Mars, built from your arrival speed.',
     analogy: 'Crossing a border: from then on, the other country’s rules apply.',
     phases: ['arrival'],
     live: safe(
       () =>
-        `Mars’ sphere of influence reaches ${fmt(SOI_MARS / 1000)} km. The game starts the encounter at ${fmt((MISSION.encounterSoiFactor * SOI_MARS) / 1000)} km (${fmt(MISSION.encounterSoiFactor)}× the SOI, to keep it forgiving).`,
+        `Mars’ sphere of influence reaches ${fmt(SOI_MARS / 1000)} km. The game does not track the crossing itself: on the arrival date it checks your aim error, and within ${fmt(CAPTURE_MAX_MISS_KM)} km of Mars’ centre (well inside the sphere) it switches to a Mars-centred hyperbola for the capture burn.`,
     ),
   },
   {

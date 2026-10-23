@@ -65,8 +65,6 @@ export const MISSION = {
   bufferGbit: 40,
   /** Longest cruise the game simulates, days (legacy value, game balance). */
   maxCruiseDays: 600,
-  /** Encounter zone = this × Mars sphere of influence (legacy value, game balance). */
-  encounterSoiFactor: 2,
 } as const
 
 /** Which MISSION fields are game balance rather than physics or real practice (for UI labels). */
@@ -81,5 +79,4 @@ export const MISSION_GAME_BALANCE: readonly (keyof typeof MISSION)[] = [
   'scienceTarget',
   'bufferGbit',
   'maxCruiseDays',
-  'encounterSoiFactor',
 ]
