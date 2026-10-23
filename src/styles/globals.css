@@ -2,13 +2,127 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* Tailwind scans the repo for class names; keep it out of folders that are not app source
+   (the legacy prototype, docs and agent notes). Paths are relative to this file. */
+@source not "../../legacy";
+@source not "../../docs";
+@source not "../../.superpowers";
+@source not "../../.impeccable";
+
 @custom-variant dark (&:is(.dark *));
 
+/* ---------------------------------------------------------------------------------------------
+   Mission Architect design tokens. "The mission design handbook, read as a negative": graphite
+   film ground, paper-white ink, hairline rules, one rust accent, avionics status colours.
+   Every colour lives here; components use the Tailwind names (bg-ground, text-ink-2, …).
+   DESIGN.md documents the system.
+   --------------------------------------------------------------------------------------------- */
+:root {
+  /* Ground: the film. Steps are small on purpose; separation comes from rules, not boxes. */
+  --ground: oklch(0.175 0.009 250);
+  --ground-raised: oklch(0.205 0.009 250);
+  --ground-sunken: oklch(0.145 0.009 250);
+  --ground-hover: oklch(0.235 0.009 250);
+
+  /* Rules: hairlines that structure the page (decorative, not text). */
+  --rule: oklch(0.31 0.01 250);
+  --rule-strong: oklch(0.42 0.01 250);
+
+  /* Ink: warm paper white. All three pass WCAG AA (≥ 4.5:1) on every ground step. */
+  --ink: oklch(0.93 0.012 85);
+  --ink-2: oklch(0.77 0.012 85);
+  --ink-3: oklch(0.645 0.012 85);
+
+  /* The one accent: Mars dust. Current phase, primary action, the target. Nothing else. */
+  --accent: oklch(0.72 0.14 52);
+  --accent-ink: oklch(0.175 0.009 250);
+  --accent-dim: oklch(0.72 0.14 52 / 16%);
+
+  /* Status: avionics semantics. Always paired with a word (GO / CAUTION / NO-GO), never colour alone. */
+  --go: oklch(0.8 0.135 152);
+  --caution: oklch(0.85 0.14 88);
+  --nogo: oklch(0.68 0.2 18);
+  --go-dim: oklch(0.8 0.135 152 / 14%);
+  --caution-dim: oklch(0.85 0.14 88 / 14%);
+  --nogo-dim: oklch(0.68 0.2 18 / 15%);
+
+  /* shadcn/ui variable names, mapped onto the tokens above so Radix primitives match. */
+  --radius: 0.125rem;
+  --background: var(--ground);
+  --foreground: var(--ink);
+  --card: var(--ground-raised);
+  --card-foreground: var(--ink);
+  --popover: var(--ground-raised);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-ink);
+  --secondary: var(--ground-hover);
+  --secondary-foreground: var(--ink);
+  --muted: var(--ground-raised);
+  --muted-foreground: var(--ink-2);
+  --accent-ui: var(--ground-hover);
+  --destructive: var(--nogo);
+  --border: var(--rule);
+  --input: var(--rule-strong);
+  --ring: var(--accent);
+
+  /* Layout */
+  --topbar-h: 4.25rem;
+  --panel-w: 22rem;
+  --rail-w: 2.75rem;
+
+  /* Motion: exponential ease-outs only. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  color-scheme: dark;
+}
+
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-math: "STIX Two Text Variable", "Cambria Math", "Times New Roman", serif;
+
+  /* Type scale (rem at 16 px): 12 / 13 / 14 / 15 / 18 / 22 / 32 / 48 */
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-detail: 0.8125rem;
+  --text-detail--line-height: 1.25rem;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.375rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5rem;
+  --text-lead: 1.125rem;
+  --text-lead--line-height: 1.625rem;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
+  --text-figure: 2rem;
+  --text-figure--line-height: 2.25rem;
+  --text-display: 3rem;
+  --text-display--line-height: 3.125rem;
+
+  --color-ground: var(--ground);
+  --color-ground-raised: var(--ground-raised);
+  --color-ground-sunken: var(--ground-sunken);
+  --color-ground-hover: var(--ground-hover);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-mars: var(--accent);
+  --color-mars-ink: var(--accent-ink);
+  --color-mars-dim: var(--accent-dim);
+  --color-go: var(--go);
+  --color-caution: var(--caution);
+  --color-nogo: var(--nogo);
+  --color-go-dim: var(--go-dim);
+  --color-caution-dim: var(--caution-dim);
+  --color-nogo-dim: var(--nogo-dim);
+
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) * 2);
+  --radius-xl: calc(var(--radius) * 3);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -21,101 +135,88 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent-ui);
+  --color-accent-foreground: var(--ink);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-}
 
-:root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --ease-out-expo: var(--ease-out);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+  }
+  html {
+    background: var(--ground);
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-ground font-sans text-body text-ink antialiased;
+    font-optical-sizing: auto;
+    font-variant-numeric: lining-nums;
+    caret-color: var(--accent);
+  }
+  ::selection {
+    background: oklch(0.72 0.14 52 / 38%);
+    color: var(--ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+  a {
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1px;
+  }
+  /* Scrollbars carry the palette too. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--rule-strong);
+    border-radius: 0;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  /* Condensed caps: the handbook's figure-label voice. For labels, never for headings. */
+  .label-caps {
+    font-size: var(--text-label);
+    line-height: var(--text-label--line-height);
+    font-stretch: 78%;
+    font-weight: 600;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+  }
+  /* Every number on screen: tabular, lining, slightly condensed so columns stay aligned. */
+  .num {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+  /* Equations: italic textbook serif. */
+  .formula {
+    font-family: var(--font-math);
+    font-style: italic;
+    font-variant-numeric: lining-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

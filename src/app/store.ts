@@ -4,13 +4,14 @@
 // any part of the design is reflected everywhere at once (Review Focus 2).
 import { useMemo } from 'react'
 import { create } from 'zustand'
+import { useShallow } from 'zustand/react/shallow'
 import { presetById } from '@/data/presets'
 import { launchChecklist, type CheckItem, type MissionDesign } from '@/game/checklist'
 import { canEnter, nextPhase, type Phase } from '@/game/flow'
 import { spacecraftStats, type SpacecraftDesign, type SpacecraftStats } from '@/game/spacecraft'
 import { AU } from '@/physics/constants'
 import { bodyState } from '@/physics/ephemeris'
-import { rocketStats, type RocketDesign, type RocketStats } from '@/physics/launcher'
+import { capacityToC3, rocketStats, type RocketDesign, type RocketStats } from '@/physics/launcher'
 import { transferFor, type PorkchopGrid, type Transfer } from '@/physics/porkchop'
 import { computePorkchopAsync } from '@/physics/porkchopClient'
 import { norm } from '@/physics/vec'
@@ -207,8 +208,92 @@ function useDerived<T>(select: (s: DesignState) => T): T {
   return useMemo(() => select({ design }), [design, select])
 }
 
+/** Payload (kg) the rocket can send to the chosen transfer's C3; 0 without a transfer (capacityToC3 bisection). */
+export function selectCapacityKg(s: DesignState): number {
+  const t = selectTransfer(s)
+  return t ? capacityToC3(s.design.rocket, t.c3) : 0
+}
+
 export const useTransfer = () => useDerived(selectTransfer)
 export const useSpacecraftStats = () => useDerived(selectSpacecraftStats)
 export const useRocketStats = () => useDerived(selectRocketStats)
 export const useChecklist = () => useDerived(selectChecklist)
 export const useCanLaunch = () => useDerived(selectCanLaunch)
+export const useCapacityKg = () => useDerived(selectCapacityKg)
+
+// ---------------------------------------------------------------------------------------------
+// GameView (ruling R4): the store's data plus everything derived from the design, as one read-only
+// snapshot. The Physics panel's CONCEPTS[*].live(view) and later screens read it.
+
+/** The store's data fields (no actions). */
+export type GameViewState = Pick<
+  GameState,
+  | 'phase'
+  | 'design'
+  | 'seed'
+  | 'porkchop'
+  | 'porkchopStatus'
+  | 'hoverTransfer'
+  | 'launched'
+  | 'arrived'
+  | 'opsDone'
+  | 'launch'
+  | 'cruise'
+  | 'ops'
+  | 'result'
+>
+
+export interface GameView extends GameViewState {
+  /** Lambert transfer for the chosen dates; null with none chosen or none valid. */
+  transfer: Transfer | null
+  rocketStats: RocketStats
+  spacecraftStats: SpacecraftStats
+  checklist: CheckItem[]
+  /** Rocket capacity to the transfer's C3, kg (0 without a transfer). */
+  capacityKg: number
+}
+
+/** Builds a GameView from plain state (pure; for tests and non-React callers). */
+export function buildGameView(s: GameViewState): GameView {
+  return {
+    ...s,
+    transfer: selectTransfer(s),
+    rocketStats: selectRocketStats(s),
+    spacecraftStats: selectSpacecraftStats(s),
+    checklist: selectChecklist(s),
+    capacityKg: selectCapacityKg(s),
+  }
+}
+
+const selectViewState = (s: GameState): GameViewState => ({
+  phase: s.phase,
+  design: s.design,
+  seed: s.seed,
+  porkchop: s.porkchop,
+  porkchopStatus: s.porkchopStatus,
+  hoverTransfer: s.hoverTransfer,
+  launched: s.launched,
+  arrived: s.arrived,
+  opsDone: s.opsDone,
+  launch: s.launch,
+  cruise: s.cruise,
+  ops: s.ops,
+  result: s.result,
+})
+
+/**
+ * Hook form of buildGameView. The state fields are read with a shallow-compared selector and each
+ * derived value with its memoized hook, so the view object changes only when something in it does.
+ */
+export function useGameView(): GameView {
+  const state = useGame(useShallow(selectViewState))
+  const transfer = useTransfer()
+  const rocket = useRocketStats()
+  const spacecraft = useSpacecraftStats()
+  const checklist = useChecklist()
+  const capacityKg = useCapacityKg()
+  return useMemo(
+    () => ({ ...state, transfer, rocketStats: rocket, spacecraftStats: spacecraft, checklist, capacityKg }),
+    [state, transfer, rocket, spacecraft, checklist, capacityKg],
+  )
+}
