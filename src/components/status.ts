@@ -29,6 +29,15 @@ export const STATUS_RULE: Record<Status, string> = {
   bad: 'border-nogo',
 }
 
+/**
+ * A distance for a readout: under 0.1 km it reads "< 0.1" (a corrected approach is metres off, and
+ * "0" would look like a missing number), under 10 km with one decimal, otherwise whole km.
+ */
+export function distanceKm(km: number): { value: number | string; digits: number } {
+  if (Number.isFinite(km) && km >= 0 && km < 0.1) return { value: '< 0.1', digits: 0 }
+  return { value: km, digits: Number.isFinite(km) && km < 10 ? 1 : 0 }
+}
+
 /** en-US number with `digits` decimals and thousands separators; "–" for NaN/±Infinity. */
 export function formatNumber(x: number, digits = 0): string {
   if (!Number.isFinite(x)) return '–'

@@ -9,7 +9,7 @@ import { useGame, useTransfer } from '@/app/store'
 import { ActionButton } from '@/components/ActionButton'
 import { DecisionCard } from '@/components/DecisionCard'
 import { Readout } from '@/components/Readout'
-import { formatNumber } from '@/components/status'
+import { distanceKm, formatNumber } from '@/components/status'
 import { Timeline, type TimelineEvent } from '@/components/Timeline'
 import { TimeWarp, type WarpRate } from '@/components/TimeWarp'
 import { MISSION } from '@/data/mission'
@@ -154,7 +154,7 @@ function CruiseFlight({ cruise, transfer }: { cruise: CruiseProgress; transfer: 
           <div className="grid grid-cols-2 gap-x-6 gap-y-4">
             <Readout
               label="Arrival-day distance"
-              value={Number.isFinite(predicted.missKm) ? predicted.missKm : NaN}
+              {...distanceKm(Number.isFinite(predicted.missKm) ? predicted.missKm : NaN)}
               unit="km"
               status={inReach ? 'ok' : 'bad'}
               hint={`From Mars on ${formatJd(sim.arrJd)} · capture ≤ ${formatNumber(CAPTURE_MAX_MISS_KM)} km`}

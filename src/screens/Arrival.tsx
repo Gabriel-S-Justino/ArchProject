@@ -7,7 +7,7 @@ import { ArrowRight } from 'lucide-react'
 import { useGame } from '@/app/store'
 import { ActionButton } from '@/components/ActionButton'
 import { Readout } from '@/components/Readout'
-import { formatNumber } from '@/components/status'
+import { distanceKm, formatNumber } from '@/components/status'
 import { MISSION } from '@/data/mission'
 import { CAPTURE_MAX_MISS_KM, burnPropellantKg, predictArrival, type ArrivalResult } from '@/game/cruise'
 import { MU_MARS, R_MARS } from '@/physics/constants'
@@ -70,9 +70,8 @@ export function Arrival() {
             <Readout label="Capture burn" value={moiDv} unit="m/s" hint="Δv at periapsis (MOI)" />
             <Readout
               label="Arrival-day distance"
-              value={missKm}
-              // A near-perfect approach is still a real distance: below 10 km show the decimal, never a bare 0.
-              digits={missKm < 10 ? 1 : 0}
+              // A near-perfect approach is still a real distance: never a bare 0.
+              {...distanceKm(missKm)}
               unit="km"
               status={inReach ? 'ok' : 'bad'}
               hint={`From Mars on ${formatJd(sim.arrJd)} · capture ≤ ${formatNumber(CAPTURE_MAX_MISS_KM)} km`}
