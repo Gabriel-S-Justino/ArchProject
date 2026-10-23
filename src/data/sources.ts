@@ -88,7 +88,7 @@ export const DATA_SOURCES: DataSource[] = [
     provider: 'Northrop Grumman',
     url: 'https://cdn.northropgrumman.com/-/media/wp-content/uploads/GEM-63-GEM-63XL-Datasheet.pdf',
     fetched: READ,
-    usedFor: 'Solid strap-on boosters (src/data/boosters.ts).',
+    usedFor: 'Solid strap-on boosters (src/data/boosters.ts). The liquid Falcon Heavy side booster there is built from the Falcon Heavy stage data (preset-reference-falcon-heavy) and Merlin 1D engine data.',
   },
   {
     id: 'preset-reference-falcon-heavy',

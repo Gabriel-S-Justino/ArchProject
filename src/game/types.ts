@@ -44,6 +44,8 @@ export interface TankPart {
 export interface BoosterPart {
   id: string
   name: string
+  /** Absent = solid. Liquid strap-ons (Falcon Heavy side cores) burn in parallel exactly like solids. */
+  propellant?: Propellant
   /** Burn-averaged sea-level thrust, N. */
   thrustSL: number
   /** Burn-averaged vacuum thrust, N. */

@@ -89,6 +89,7 @@ export const PRESET_REFERENCE: StageReference[] = [
     lengthM: 42.6,
     engineId: 'merlin-1d',
     engineCount: 9,
+    boosterId: 'booster-falcon-side',
     source: `${FH} Per core: 287.4 t LOX + 123.5 t RP-1, 22.2 t dry, 9 × Merlin 1D, boosters burn 154.3 s.`,
     url: FH_URL,
   },

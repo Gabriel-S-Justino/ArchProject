@@ -183,6 +183,19 @@ describe('catalog integrity', () => {
     expect(BOOSTERS.some((b) => b.id === 'gem-63')).toBe(true)
     for (const b of BOOSTERS) expect(b.thrustSL).toBeLessThan(b.thrustVac)
   })
+
+  it('the liquid Falcon side booster is assembled from its reference stage and 9 Merlin 1D', () => {
+    const b = BOOSTERS.find((x) => x.id === 'booster-falcon-side')!
+    const ref = PRESET_REFERENCE.find((r) => r.id === 'ref-fhe-side')!
+    const merlin = ENGINES.find((e) => e.id === 'merlin-1d')!
+    expect(b.propellant).toBe('kerolox')
+    expect(ref.boosterId).toBe(b.id)
+    expect([b.propellantKg, b.dryKg]).toEqual([ref.propellantKg, ref.dryKg])
+    expect(b.thrustSL).toBe(9 * merlin.thrustSL)
+    expect(b.thrustVac).toBe(9 * merlin.thrustVac)
+    expect([b.ispSL, b.ispVac]).toEqual([merlin.ispSL, merlin.ispVac])
+    for (const s of BOOSTERS.filter((x) => x.id.startsWith('gem-'))) expect(s.propellant ?? 'solid').toBe('solid')
+  })
 })
 
 describe('LSP curves', () => {
