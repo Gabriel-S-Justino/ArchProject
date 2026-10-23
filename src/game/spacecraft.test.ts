@@ -70,7 +70,7 @@ describe('spacecraftStats', () => {
     )
     expect(s.dryKg).toBeCloseTo(560 + 120 + 26 + 60 + 1.5 + 65 + 15 + 10 + 30 + 75, 9)
     expect(s.costM).toBeCloseTo(180 + 50 + 12 + 40 + 4 + 70 + 50 + 12 + 15 + 25, 9)
-    expect(s.science).toBe(11)
+    expect(s.science).toBe(14)
     expect(s.storageGb).toBe(160)
     expect(s.shield).toBe(0.5)
     expect(s.batteryWh).toBe(3080)

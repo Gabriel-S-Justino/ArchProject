@@ -3,6 +3,11 @@
 // marks values derived or assumed. `costM`, `science` and `dataGbPerTurn` are game balance:
 // a sensible orbiter (bus + array + battery + antennas + 3 instruments + recorder + propulsion)
 // costs about US$ 500 M of the US$ 900 M mission budget, so the launcher choice still matters.
+// Instrument data volumes (ruling R27, game balance) are sized like real orbiters, whose imagers
+// produce far more data than the link can return: camera + spectrometer + radar make 180 Gbit per
+// 30-day turn, which a 3 m high-gain antenna (8 h/day DSN contact) can return only out to ≈ 2.1 AU
+// Earth–Mars distance. Beyond that science is link-limited (1/d²); a low-gain antenna returns
+// almost nothing and a laser terminal removes the limit.
 // Power: + generation (solar values are at 1 AU and fall off with 1/r²), − load.
 import type { SpacecraftPart } from '@/game/types'
 
@@ -114,8 +119,8 @@ export const SPACECRAFT_PARTS: SpacecraftPart[] = [
     costM: 70,
     massKg: 65,
     powerW: -60,
-    science: 4,
-    dataGbPerTurn: 10,
+    science: 6,
+    dataGbPerTurn: 120,
     max: 1,
     flavor: 'A 0.5 m telescope that sees objects the size of a desk on the surface. Every image is gigabits of data.',
     source:
@@ -128,8 +133,8 @@ export const SPACECRAFT_PARTS: SpacecraftPart[] = [
     costM: 60,
     massKg: 32.92,
     powerW: -45.8,
-    science: 5,
-    dataGbPerTurn: 6,
+    science: 6,
+    dataGbPerTurn: 40,
     max: 1,
     flavor: 'Splits reflected sunlight into hundreds of colours to map the minerals that formed in water.',
     source: 'CRISM: 32.92 kg, 45.8 W while acquiring (NASA PDS Geosciences CRISM instrument catalog). Science and data volume: game balance.',
@@ -141,8 +146,8 @@ export const SPACECRAFT_PARTS: SpacecraftPart[] = [
     costM: 50,
     massKg: 15,
     powerW: -40,
-    science: 7,
-    dataGbPerTurn: 5,
+    science: 8,
+    dataGbPerTurn: 20,
     max: 1,
     flavor: 'Radio waves at 15–25 MHz pass through the ground and echo off buried ice layers.',
     source:
