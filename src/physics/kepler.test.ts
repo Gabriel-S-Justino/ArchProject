@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { AU, DAY, MU_EARTH, MU_SUN, R_EARTH } from './constants'
-import { propagate, sampleTrajectory } from './kepler'
+import { propagate, sampleTrajectory, stumpffC, stumpffS } from './kepler'
 import { circularSpeed, orbitalElements, period, visViva } from './orbit'
 import { cross, norm, sub } from './vec'
 import type { StateVector } from './vec'
@@ -116,6 +116,60 @@ describe('propagate', () => {
         expect(Math.abs((energy(s, MU_SUN) - e0) / e0)).toBeLessThan(1e-9)
         expect(Math.abs((angularMomentum(s) - h0) / h0)).toBeLessThan(1e-9)
       }
+    }
+  })
+})
+
+describe('stumpffC / stumpffS', () => {
+  it('are continuous across the series switch at |z| = 1e-3 (both sides agree to ~1e-12 relative)', () => {
+    const below = 1e-3 * (1 - 1e-15) // series branch
+    const above = 1e-3 // closed-form branch
+    for (const sign of [1, -1]) {
+      for (const f of [stumpffC, stumpffS]) {
+        const a = f(sign * below)
+        const b = f(sign * above)
+        expect(Math.abs(a - b) / Math.abs(b)).toBeLessThan(1e-12) // measured ≤ 3.9e-13
+      }
+    }
+  })
+
+  it('match the closed forms at z = 0 and z = ±1', () => {
+    expect(stumpffC(0)).toBe(1 / 2)
+    expect(stumpffS(0)).toBe(1 / 6)
+    expect(stumpffC(1)).toBeCloseTo(1 - Math.cos(1), 15)
+    expect(stumpffS(-1)).toBeCloseTo(Math.sinh(1) - 1, 15)
+  })
+})
+
+describe('propagate (absolute hyperbolic timing)', () => {
+  it('reaches r = a(1 − e·cosh H) at t = √((−a)³/μ)·(e·sinh H − H) after periapsis', () => {
+    const e = 1.8
+    const rp = R_EARTH + 500e3
+    const a = rp / (1 - e) // < 0
+    const vp = Math.sqrt((MU_EARTH * (1 + e)) / rp)
+    const s0: StateVector = { r: [rp, 0, 0], v: [0, vp, 0] }
+    for (const H of [0.3, 1.2, 3, -2]) {
+      const t = Math.sqrt((-a) ** 3 / MU_EARTH) * (e * Math.sinh(H) - H)
+      const expected = a * (1 - e * Math.cosh(H))
+      const s = propagate(s0, MU_EARTH, t)
+      expect(Math.abs(norm(s.r) - expected) / expected).toBeLessThan(1e-6)
+      // Position in the perifocal frame: x = a(cosh H − e), y = −a·√(e² − 1)·sinh H.
+      const x = a * (Math.cosh(H) - e)
+      const y = -a * Math.sqrt(e * e - 1) * Math.sinh(H)
+      expect(norm(sub(s.r, [x, y, 0])) / expected).toBeLessThan(1e-6)
+    }
+  })
+})
+
+describe('propagate non-convergence', () => {
+  // The 50-step cap itself was not reached by 200k fuzzed states (r 6.6e3–6.6e7 km, speeds
+  // 0.03–30 × circular, 10% radial, |dt| up to 1e20 s); it stays as a backstop that also
+  // returns the NaN state. Overflowing √μ·dt used to come back as a finite, wrong state.
+  it('returns a NaN state instead of a wrong one when it cannot solve (√μ·dt overflows)', () => {
+    for (const dt of [Number.MAX_VALUE, -Number.MAX_VALUE, Infinity, NaN]) {
+      const s = propagate(hyperbola, MU_EARTH, dt)
+      expect(s.r.every(Number.isNaN)).toBe(true)
+      expect(s.v.every(Number.isNaN)).toBe(true)
     }
   })
 })

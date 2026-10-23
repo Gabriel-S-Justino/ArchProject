@@ -52,6 +52,9 @@ function initialChi(r0: number, rv: number, mu: number, alpha: number, dt: numbe
  * and |χ| < 2π·√a for a bound orbit with |dt| < T. Bisection replaces Newton when the step
  * would leave the bracket or is not halving: plain Newton crawls back from an overshoot into
  * the cosh/sinh region of a long hyperbolic leg at only ~√|a| per step.
+ *
+ * Returns NaN when MAX_ITERATIONS pass without convergence (a Newton step or the bracket
+ * shrinking below TOLERANCE), so callers never get a silently wrong χ.
  */
 function solveChi(r0: number, vr0: number, mu: number, alpha: number, rp: number, dt: number): number {
   const sqrtMu = Math.sqrt(mu)
@@ -97,22 +100,31 @@ function solveChi(r0: number, vr0: number, mu: number, alpha: number, rp: number
     if (!inside(newton) || Math.abs(2 * F) > Math.abs(dxOld * dF)) {
       dx = (hi - lo) / 2
       chi = bisect()
+      // The bracket itself has closed on the root (Numerical Recipes rtsafe). Needed on long
+      // near-parabolic legs, where Newton keeps being rejected until the very end.
+      if (Number.isFinite(dx) && dx <= TOLERANCE * Math.max(1, Math.abs(chi))) return chi
     } else {
-      // Converged only on a small Newton step: its error is quadratic, a bisection step's is not.
       dx = F / dF
       chi = newton
-      if (Math.abs(dx) <= TOLERANCE * Math.max(1, Math.abs(chi))) break
+      if (Math.abs(dx) <= TOLERANCE * Math.max(1, Math.abs(chi))) return chi
     }
   }
-  return chi
+  return Number.NaN
 }
+
+const NAN_STATE = (): StateVector => ({ r: [NaN, NaN, NaN], v: [NaN, NaN, NaN] })
 
 /**
  * State after `dt` seconds (negative for backwards) on the two-body conic through `s0`.
  * Works for any conic. Bound orbits are first reduced modulo one period for precision.
+ *
+ * Signals failure with a state whose six components are all NaN (check with Number.isNaN on any
+ * component): when the Kepler iteration hits its 50-step cap without converging, or when √μ·dt
+ * is not finite. It never returns a silently wrong state.
  */
 export function propagate(s0: StateVector, mu: number, dt: number): StateVector {
   if (dt === 0) return { r: [...s0.r], v: [...s0.v] }
+  if (!Number.isFinite(Math.sqrt(mu) * dt)) return NAN_STATE()
   const r0 = norm(s0.r)
   const vr0 = dot(s0.r, s0.v) / r0
   const alpha = 2 / r0 - dot(s0.v, s0.v) / mu // = 1/a
@@ -129,6 +141,7 @@ export function propagate(s0: StateVector, mu: number, dt: number): StateVector 
 
   const sqrtMu = Math.sqrt(mu)
   const chi = solveChi(r0, vr0, mu, alpha, rp, t)
+  if (Number.isNaN(chi)) return NAN_STATE()
   const chi2 = chi * chi
   const z = alpha * chi2
   const C = stumpffC(z)
