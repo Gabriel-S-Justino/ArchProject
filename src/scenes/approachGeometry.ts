@@ -80,6 +80,20 @@ export function directionAt(c: { e: number }, nu: number): [number, number] {
   return [x / n, y / n]
 }
 
+/** pointAt and directionAt written into `out` (x, y and unit vx, vy): the per-frame form, no tuples. */
+export function writePose(c: { p: number; e: number }, nu: number, out: { x: number; y: number; vx: number; vy: number }): void {
+  const r = radiusAt(c, nu)
+  const cos = Math.cos(nu)
+  const sin = Math.sin(nu)
+  out.x = r * cos
+  out.y = r * sin
+  const dx = -sin
+  const dy = c.e + cos
+  const n = Math.hypot(dx, dy) || 1
+  out.vx = dx / n
+  out.vy = dy / n
+}
+
 /** True anomaly where the hyperbola reaches radius r ≥ rp, on the outgoing side (ν ≥ 0). */
 export function nuAtRadius(c: { p: number; e: number }, r: number): number {
   const cos = (c.p / Math.max(r, 1e-9) - 1) / c.e

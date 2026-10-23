@@ -16,13 +16,26 @@ import { ARC_POINTS, transferArc, writeLineDistances, writeTrail } from './solar
 /** DESIGN.md Mars rust (oklch 0.72 0.14 52 ≈ #e8894a). */
 export const RUST = '#e8894a'
 
-/** A solid wide line through `points`, drawn up to the fraction `upTo` of its segments. */
+/**
+ * A solid wide line through `points`, drawn up to the fraction `upTo` of its segments. The segment
+ * buffer is allocated once per capacity and rewritten in place when the points change (a new
+ * selection, a new arrival), so picking transfers does not churn GPU buffers.
+ */
 export function GlowArc({ points, upTo = 1, width = 2.2, color = RUST, gain = 1.3, opacity = 1 }: { points: Float32Array; upTo?: number; width?: number; color?: string; gain?: number; opacity?: number }) {
+  const invalidate = useThree((s) => s.invalidate)
+  const count = Math.floor(points.length / 3)
+  const segments = Math.max(0, count - 1)
+  // One buffer per arc length (transfer arcs are always sampled at ARC_POINTS).
+  const cap = Math.max(2, count)
   const line = useMemo(() => {
+    const g = new LineGeometry()
+    g.setPositions(new Float32Array(cap * 3))
     const mat = new LineMaterial({ linewidth: width, transparent: opacity < 1, opacity, depthWrite: false })
     mat.color.set(color).multiplyScalar(gain)
-    return new Line2(new LineGeometry(), mat)
-  }, [width, color, gain, opacity])
+    const l = new Line2(g, mat)
+    l.frustumCulled = false
+    return l
+  }, [cap, width, color, gain, opacity])
   useEffect(
     () => () => {
       line.geometry.dispose()
@@ -30,17 +43,26 @@ export function GlowArc({ points, upTo = 1, width = 2.2, color = RUST, gain = 1.
     },
     [line],
   )
-  const segments = Math.max(0, points.length / 3 - 1)
   useLayoutEffect(() => {
     if (segments < 1) return
-    line.geometry.setPositions(points)
-    line.computeLineDistances()
-  }, [line, points, segments])
+    const attr = line.geometry.getAttribute('instanceStart') as THREE.InterleavedBufferAttribute
+    const arr = attr.data.array as Float32Array
+    // Segment i runs from point i to point i + 1: six consecutive floats of the point list.
+    for (let i = 0; i < segments; i++) {
+      const o = i * 6
+      const q = i * 3
+      for (let k = 0; k < 6; k++) arr[o + k] = points[q + k]!
+    }
+    attr.data.needsUpdate = true
+    line.geometry.computeBoundingSphere()
+    invalidate()
+  }, [line, points, segments, invalidate])
   useLayoutEffect(() => {
     line.geometry.instanceCount = Math.max(0, Math.min(segments, Math.round(segments * Math.min(1, Math.max(0, upTo)))))
     line.visible = segments >= 1 && line.geometry.instanceCount > 0
-  }, [line, upTo, segments, points])
-  return <primitive object={line} frustumCulled={false} />
+    invalidate()
+  }, [line, upTo, segments, points, invalidate])
+  return <primitive object={line} />
 }
 
 /**
@@ -72,7 +94,11 @@ export function TrailArc({ points, frac, end, width = 2.2, color = RUST, gain = 
     const attr = line.geometry.getAttribute('instanceStart') as THREE.InterleavedBufferAttribute
     const arr = attr.data.array as Float32Array
     // Segment i runs from point i to point i + 1: six consecutive floats of the point list.
-    for (let i = 0; i < n - 1; i++) arr.set(scratch.subarray(i * 3, i * 3 + 6), i * 6)
+    for (let i = 0; i < n - 1; i++) {
+      const o = i * 6
+      const q = i * 3
+      for (let k = 0; k < 6; k++) arr[o + k] = scratch[q + k]!
+    }
     attr.data.needsUpdate = true
     line.geometry.instanceCount = Math.max(0, n - 1)
     line.visible = n > 1
@@ -120,10 +146,12 @@ export function DashedPath({ capacity, write, version, color = '#9a958d', opacit
     [line],
   )
   const pending = useRef(false)
+  const written = useRef(0)
   const writeRef = useRef(write)
   writeRef.current = write
   useLayoutEffect(() => {
     const n = version == null ? 0 : writeRef.current(pos)
+    written.current = n
     writeLineDistances(pos, n, dist)
     line.geometry.setDrawRange(0, n)
     ;(line.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
@@ -139,8 +167,9 @@ export function DashedPath({ capacity, write, version, color = '#9a958d', opacit
   const near = useMemo(() => new THREE.Vector3(), [])
   useFrame(({ camera }) => {
     if (!line.visible) return
-    // Dash length from the camera's distance to the path's first point (a cheap, stable proxy).
-    near.set(pos[0]!, pos[1]!, pos[2]!)
+    // Dash length from the camera's distance to the path's midpoint (stable, and right where the eye is).
+    const m3 = Math.floor(written.current / 2) * 3
+    near.set(pos[m3]!, pos[m3 + 1]!, pos[m3 + 2]!)
     const d = Math.max(0.01, camera.position.distanceTo(near))
     const m = line.material as THREE.LineDashedMaterial
     m.dashSize = d * dash

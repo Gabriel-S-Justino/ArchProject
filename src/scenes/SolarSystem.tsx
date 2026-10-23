@@ -35,6 +35,7 @@ import { DISPLAY_RADIUS, SHIP_SCALE, clampJd, ephemerisOrbit, exaggeration, scal
 import { SpacecraftModel } from './SpacecraftModel'
 import { spacecraftLayout } from './spacecraftLayout'
 import { Starfield } from './Starfield'
+import { wheelZoomFactor } from './wheel'
 import { DashedPath, RUST, TrailArc, TransferArc } from './TransferArc'
 
 export type Focus = 'sun' | 'earth' | 'mars' | 'ship'
@@ -109,7 +110,7 @@ function SolarSystem(props: SolarSystemProps) {
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
-        zoomBy(zoom.current, Math.exp(Math.max(-1, Math.min(1, e.deltaY / 400))))
+        zoomBy(zoom.current, wheelZoomFactor(e.deltaY, e.deltaMode, el.clientHeight))
         setHint(false)
         return
       }

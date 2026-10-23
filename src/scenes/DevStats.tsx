@@ -43,7 +43,9 @@ export function DevStats({ name }: { name: string }) {
     s.maxCalls = Math.max(s.maxCalls, s.calls)
     s.triangles = gl.info.render.triangles
     s.frames++
-    s.cam = [camera.position.x, camera.position.y, camera.position.z]
+    s.cam[0] = camera.position.x
+    s.cam[1] = camera.position.y
+    s.cam[2] = camera.position.z
     gl.info.reset()
     const now = performance.now()
     if (s.frames > 10 && last.current.prev > 0) s.worstMs = Math.max(s.worstMs, now - last.current.prev)
@@ -51,7 +53,9 @@ export function DevStats({ name }: { name: string }) {
     last.current.n++
     if (now - last.current.t >= 1000) {
       s.fps = (last.current.n * 1000) / (now - last.current.t)
-      last.current = { t: now, n: 0, prev: now }
+      last.current.t = now
+      last.current.n = 0
+      last.current.prev = now
     }
   }, -100)
   return null

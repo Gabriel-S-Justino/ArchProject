@@ -10,6 +10,8 @@ import {
   eventTime,
   realTimeAt,
   shotAt,
+  shotAtPlan,
+  shotPlan,
   stageBurns,
 } from './launchTiming'
 
@@ -154,6 +156,19 @@ describe('shotAt', () => {
     expect(shotAt(s, eventTime(s, 'orbit') + 0.1).shot).toBe('wide')
     expect(shotAt(s, s.endA).shot).toBe('wide')
   })
+
+  it('the precomputed plan gives the same shots into one reused object (the per-frame path)', () => {
+    const s = buildSchedule(launchTimeline(rocket('falcon-heavy-exp'), PAYLOAD, C3).events)
+    const plan = shotPlan(s)
+    const out = { shot: 'pad' as const, since: 0 } as ReturnType<typeof shotAt>
+    for (let a = 0; a <= s.endA; a += 0.05) {
+      const r = shotAtPlan(plan, a, out)
+      expect(r).toBe(out)
+      expect({ ...r }).toEqual(shotAt(s, a))
+    }
+    const pad = buildSchedule(launchTimeline(rocket('falcon-heavy-exp'), PAYLOAD, C3).events, { failure: 'pad' })
+    expect(shotAtPlan(shotPlan(pad), 30, out).shot).toBe('pad')
+  })
 })
 
 describe('ascentPath', () => {
@@ -171,5 +186,14 @@ describe('ascentPath', () => {
     // Clears a ~100 m tower within the first ~15 s and is far above the pad by stage separation.
     expect(p(15).y).toBeGreaterThan(100)
     expect(p(220).y).toBeGreaterThan(20_000)
+  })
+
+  it('fills a reused sample with the same values', () => {
+    const p = ascentPath(850, 1.17, 1100)
+    const out = { x: 0, y: 0, pitch: 0, v: 0 }
+    for (const t of [0, 12.5, 300, 849, 1100]) {
+      expect(p(t, out)).toBe(out)
+      expect({ ...out }).toEqual(p(t))
+    }
   })
 })

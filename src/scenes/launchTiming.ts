@@ -234,31 +234,71 @@ export function burnoutTime(burns: readonly StageBurn[]): number {
 
 export type Shot = 'pad' | 'chase' | 'sep' | 'wide'
 
-/** Which shot is live at animation time `a`, and since when (for motion within the shot). */
-export function shotAt(s: LaunchSchedule, a: number): { shot: Shot; since: number } {
-  if (s.failure === 'pad') return { shot: 'pad', since: 0 }
+/** The camera shot plan of a schedule: precomputed once, so the per-frame lookup allocates nothing. */
+export interface ShotPlan {
+  pad: boolean
+  padEnd: number
+  wideAt: number
+  /** Separation windows [from, to), in order. */
+  windows: Float64Array
+}
+
+/** Separation windows: from just before a group of separations to a moment after its last one. */
+export function shotPlan(s: LaunchSchedule): ShotPlan {
   const padEnd = s.liftoffA + 2.6
-  if (a < padEnd) return { shot: 'pad', since: 0 }
   const wideAt = Math.min(eventTime(s, 'orbit'), eventTime(s, 'cutoff')) - 0.4
-  if (a >= wideAt) return { shot: 'wide', since: wideAt }
-  // Separation windows: from just before a group of separations to a moment after its last one.
   const seps = s.events.filter((e) => e.kind === 'booster-sep' || e.kind === 'stage-sep' || e.kind === 'fairing-sep')
-  let since = padEnd
-  let shot: Shot = 'chase'
+  const w: number[] = []
   let k = 0
   while (k < seps.length) {
     let j = k
     while (j + 1 < seps.length && seps[j + 1]!.a - seps[j]!.a < 1.2) j++
-    const from = Math.max(padEnd, seps[k]!.a - 0.7)
-    const to = Math.min(wideAt, seps[j]!.a + 2.6)
-    if (a >= from && a < to) return { shot: 'sep', since: from }
-    if (a >= to) {
-      since = to
-      shot = 'chase'
-    }
+    w.push(Math.max(padEnd, seps[k]!.a - 0.7), Math.min(wideAt, seps[j]!.a + 2.6))
     k = j + 1
   }
-  return { shot, since }
+  return { pad: s.failure === 'pad', padEnd, wideAt, windows: Float64Array.from(w) }
+}
+
+export interface ShotState {
+  shot: Shot
+  since: number
+}
+
+/** Which shot is live at animation time `a`, and since when, written into `out` (no allocation). */
+export function shotAtPlan(p: ShotPlan, a: number, out: ShotState): ShotState {
+  out.shot = 'pad'
+  out.since = 0
+  if (p.pad || a < p.padEnd) return out
+  if (a >= p.wideAt) {
+    out.shot = 'wide'
+    out.since = p.wideAt
+    return out
+  }
+  out.shot = 'chase'
+  out.since = p.padEnd
+  for (let i = 0; i < p.windows.length; i += 2) {
+    const from = p.windows[i]!
+    const to = p.windows[i + 1]!
+    if (a >= from && a < to) {
+      out.shot = 'sep'
+      out.since = from
+      return out
+    }
+    if (a >= to) out.since = to
+  }
+  return out
+}
+
+const plans = new WeakMap<LaunchSchedule, ShotPlan>()
+
+/** Which shot is live at animation time `a`, and since when (for motion within the shot). */
+export function shotAt(s: LaunchSchedule, a: number): { shot: Shot; since: number } {
+  let p = plans.get(s)
+  if (!p) {
+    p = shotPlan(s)
+    plans.set(s, p)
+  }
+  return shotAtPlan(p, a, { shot: 'pad', since: 0 })
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -287,7 +327,7 @@ const ALT_SCALE = 210_000
  * by `tOrbit`; speed grows from the liftoff acceleration toward orbital speed; altitude saturates
  * softly near the 200 km parking orbit. Sampled once, then read with linear interpolation.
  */
-export function ascentPath(tOrbit: number, liftoffTwr: number, tEnd = tOrbit, steps = 800): (t: number) => AscentSample {
+export function ascentPath(tOrbit: number, liftoffTwr: number, tEnd = tOrbit, steps = 800): (t: number, out?: AscentSample) => AscentSample {
   const tO = Math.max(30, Number.isFinite(tOrbit) ? tOrbit : 600)
   const tMax = Math.max(tO, Number.isFinite(tEnd) ? tEnd : tO, 1)
   const acc0 = Math.max(1.5, ((Number.isFinite(liftoffTwr) ? liftoffTwr : 1.2) - 1) * G)
@@ -304,16 +344,16 @@ export function ascentPath(tOrbit: number, liftoffTwr: number, tEnd = tOrbit, st
     xs[k] = xs[k - 1]! + v * Math.sin(p) * dt
     ys[k] = ys[k - 1]! + v * Math.cos(p) * dt
   }
-  return (t: number) => {
+  // `out` (optional) is filled and returned instead of a new object: the scene reads this every frame.
+  return (t: number, out: AscentSample = { x: 0, y: 0, pitch: 0, v: 0 }) => {
     const tc = Math.min(tMax, Math.max(0, t))
     const f = tc / dt
     const k = Math.min(steps - 1, Math.floor(f))
     const u = f - k
-    return {
-      x: xs[k]! + (xs[k + 1]! - xs[k]!) * u,
-      y: -ALT_SCALE * Math.expm1(-(ys[k]! + (ys[k + 1]! - ys[k]!) * u) / ALT_SCALE),
-      pitch: pitchOf(tc),
-      v: speed(tc),
-    }
+    out.x = xs[k]! + (xs[k + 1]! - xs[k]!) * u
+    out.y = -ALT_SCALE * Math.expm1(-(ys[k]! + (ys[k + 1]! - ys[k]!) * u) / ALT_SCALE)
+    out.pitch = pitchOf(tc)
+    out.v = speed(tc)
+    return out
   }
 }

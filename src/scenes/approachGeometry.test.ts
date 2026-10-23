@@ -14,6 +14,7 @@ import {
   nuAtRadius,
   pointAt,
   radiusAt,
+  writePose,
 } from './approachGeometry'
 
 const RP = R_MARS + 300e3
@@ -115,5 +116,21 @@ describe('ellipse trace', () => {
   it('runs ahead of the time fraction early (fast past periapsis) and behind it late', () => {
     expect(ellipseTraced(el, 0.1 * el.period)).toBeGreaterThan(0.1)
     expect(ellipseTraced(el, 0.9 * el.period)).toBeLessThan(0.9)
+  })
+})
+
+describe('writePose', () => {
+  it('matches pointAt and directionAt without allocating tuples', () => {
+    const h = hyperbola(3.69e6, 2600, 4.282837e13)
+    const out = { x: 0, y: 0, vx: 0, vy: 0 }
+    for (const nu of [-1.5, -0.4, 0, 0.7, 1.9]) {
+      writePose(h, nu, out)
+      const [x, y] = pointAt(h, nu)
+      const [vx, vy] = directionAt(h, nu)
+      expect(out.x).toBeCloseTo(x, 6)
+      expect(out.y).toBeCloseTo(y, 6)
+      expect(out.vx).toBeCloseTo(vx, 12)
+      expect(out.vy).toBeCloseTo(vy, 12)
+    }
   })
 })

@@ -22,7 +22,7 @@ import { formatNumber } from '@/components/status'
 import { MISSION } from '@/data/mission'
 import type { SpacecraftDesign } from '@/game/spacecraft'
 import { MU_MARS, R_MARS } from '@/physics/constants'
-import { directionAt, ellipse, ellipseNu, ellipseTraced, ellipsePoints, hyperbola, hyperbolaNu, hyperbolaPoints, hyperbolaTime, nuAtRadius, pointAt } from './approachGeometry'
+import { ellipse, ellipseNu, ellipseTraced, ellipsePoints, hyperbola, hyperbolaNu, hyperbolaPoints, hyperbolaTime, nuAtRadius, pointAt, writePose } from './approachGeometry'
 import { DevStats } from './DevStats'
 import './threeSetup'
 import { PLANET_TEXTURE } from './Planet'
@@ -160,15 +160,12 @@ interface Pose {
 
 function hypPose(g: Geometry, tReal: number, p: Pose) {
   const nu = hyperbolaNu(g.h, tReal)
-  ;[p.x, p.y] = pointAt(g.h, nu)
-  ;[p.vx, p.vy] = directionAt(g.h, nu)
+  writePose(g.h, nu, p)
   p.hypFlown = clamp01((nu - g.nuStart) / (-2 * g.nuStart))
 }
 
 function ellPose(g: Geometry, tReal: number, p: Pose) {
-  const nu = ellipseNu(g.el, tReal)
-  ;[p.x, p.y] = pointAt(g.el, nu)
-  ;[p.vx, p.vy] = directionAt(g.el, nu)
+  writePose(g.el, ellipseNu(g.el, tReal), p)
 }
 
 /** Real seconds after periapsis on the ellipse, `s` animation seconds after the burn ends (rate ramps up). */

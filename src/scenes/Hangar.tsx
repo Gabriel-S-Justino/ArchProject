@@ -17,6 +17,7 @@ import './threeSetup'
 import { RocketModel } from './RocketModel'
 import { rocketLayout, type RocketLayout } from './rocketLayout'
 import { latticeTowerGeometry } from './structures'
+import { pinchFactor, wheelZoomFactor } from './wheel'
 
 const BG = '#0b0d10'
 const FOV = 30
@@ -28,10 +29,12 @@ export default function Hangar({ rocket }: { rocket: RocketDesign }) {
   const labelEls = useRef<(HTMLDivElement | null)[]>([])
   const zoom = useRef<ZoomFn | null>(null)
   const wrap = useRef<HTMLDivElement>(null)
-  const [hint, setHint] = useState(false)
+  // The hint lives in its own small component: showing it must not re-render the canvas.
+  const hint = useRef<(on: boolean) => void>(() => {})
 
   // The mouse wheel scrolls the page (the hangar sits in a scrolling plate); Ctrl/Cmd + wheel zooms.
-  // A native, non-passive listener: only the modified wheel is cancelled.
+  // A native, non-passive listener: only the modified wheel is cancelled. A two-finger pinch on a
+  // touch screen zooms too (OrbitControls' own zoom stays off: it would also take the wheel).
   useEffect(() => {
     const el = wrap.current
     if (!el) return
@@ -39,17 +42,49 @@ export default function Hangar({ rocket }: { rocket: RocketDesign }) {
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
-        zoom.current?.(Math.exp(Math.max(-1, Math.min(1, e.deltaY / 400))))
-        setHint(false)
+        zoom.current?.(wheelZoomFactor(e.deltaY, e.deltaMode, el.clientHeight))
+        hint.current(false)
         return
       }
-      setHint(true)
+      hint.current(true)
       window.clearTimeout(timer)
-      timer = window.setTimeout(() => setHint(false), 1600)
+      timer = window.setTimeout(() => hint.current(false), 1600)
     }
+    const touches = new Map<number, { x: number; y: number }>()
+    let spread = 0
+    const distance = () => {
+      const [a, b] = [...touches.values()]
+      return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0
+    }
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch') return
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      spread = distance()
+    }
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch' || !touches.has(e.pointerId)) return
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (touches.size !== 2) return
+      const d = distance()
+      if (spread > 0 && d > 0) zoom.current?.(pinchFactor(spread, d))
+      spread = d
+    }
+    const onUp = (e: PointerEvent) => {
+      touches.delete(e.pointerId)
+      spread = distance()
+    }
+    const opts = { capture: true }
     el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('pointerdown', onDown, opts)
+    el.addEventListener('pointermove', onMove, opts)
+    el.addEventListener('pointerup', onUp, opts)
+    el.addEventListener('pointercancel', onUp, opts)
     return () => {
       el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('pointerdown', onDown, opts)
+      el.removeEventListener('pointermove', onMove, opts)
+      el.removeEventListener('pointerup', onUp, opts)
+      el.removeEventListener('pointercancel', onUp, opts)
       window.clearTimeout(timer)
     }
   }, [])
@@ -84,16 +119,30 @@ export default function Hangar({ rocket }: { rocket: RocketDesign }) {
           <Minus aria-hidden />
         </button>
       </div>
-      <p
-        aria-hidden
-        className={cn(
-          'pointer-events-none absolute bottom-3 left-3 border border-rule-strong bg-ground px-2 py-1 text-detail text-ink-2 transition-opacity duration-200',
-          hint ? 'opacity-100' : 'opacity-0',
-        )}
-      >
-        Ctrl + scroll to zoom
-      </p>
+      <WheelHint show={hint} />
     </div>
+  )
+}
+
+/** "Ctrl + scroll to zoom", shown briefly when the plain wheel scrolls past the hangar. */
+function WheelHint({ show }: { show: RefObject<(on: boolean) => void> }) {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    show.current = setOn
+    return () => {
+      show.current = () => {}
+    }
+  }, [show])
+  return (
+    <p
+      aria-hidden
+      className={cn(
+        'pointer-events-none absolute bottom-3 left-3 border border-rule-strong bg-ground px-2 py-1 text-detail text-ink-2 transition-opacity duration-200',
+        on ? 'opacity-100' : 'opacity-0',
+      )}
+    >
+      Ctrl + scroll to zoom
+    </p>
   )
 }
 
@@ -226,19 +275,26 @@ function CalloutLabels({ items, els }: { items: Callout[]; els: RefObject<(HTMLD
 function CalloutProjector({ items, els }: { items: Callout[]; els: RefObject<(HTMLDivElement | null)[]> }) {
   const v = useMemo(() => new THREE.Vector3(), [])
   const right = useMemo(() => new THREE.Vector3(), [])
+  const last = useMemo<string[]>(() => [], [items])
   useFrame(({ camera, size }) => {
     camera.getWorldDirection(right)
     right.set(-right.z, 0, right.x).normalize() // horizontal camera-right
-    items.forEach((c, i) => {
+    for (let i = 0; i < items.length; i++) {
+      const c = items[i]!
       const el = els.current[i]
-      if (!el) return
+      if (!el) continue
       v.copy(right).multiplyScalar(c.side).setY(c.y).project(camera)
       const x = ((v.x + 1) / 2) * size.width
       const y = ((1 - v.y) / 2) * size.height
       const shift = c.align === 'right-of' ? 'translate(6px, -100%)' : 'translate(calc(-100% - 6px), -50%)'
-      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) ${shift}`
+      const t = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) ${shift}`
+      // Only touch the style when the label moved.
+      if (last[i] !== t) {
+        last[i] = t
+        el.style.transform = t
+      }
       el.style.visibility = v.z < 1 ? 'visible' : 'hidden'
-    })
+    }
   })
   return null
 }
@@ -279,21 +335,9 @@ function FrameRig({ height, radius, zoom }: { height: number; radius: number; zo
   const reduced = useReducedMotion() === true
   const anim = useRef<{ from: THREE.Vector3; fromDist: number; t: number } | null>(null)
   const placed = useRef(false)
-
-  useEffect(() => {
-    zoom.current = (factor) => {
-      const c = controls.current
-      if (!c) return
-      const off = camera.position.clone().sub(c.target)
-      const d = THREE.MathUtils.clamp(off.length() * factor, c.minDistance, c.maxDistance)
-      camera.position.copy(c.target).addScaledVector(off.normalize(), d)
-      c.update()
-      invalidate()
-    }
-    return () => {
-      zoom.current = null
-    }
-  }, [zoom, camera, invalidate])
+  /** The player's zoom as a factor on the framing distance: kept through edits and re-framing. */
+  const userZoom = useRef(1)
+  const dir = useMemo(() => new THREE.Vector3(), [])
 
   const goal = useMemo(() => {
     const H = Math.max(height, 14)
@@ -305,19 +349,41 @@ function FrameRig({ height, radius, zoom }: { height: number; radius: number; zo
     const needH = halfW / Math.tan(hHalf)
     return { target: new THREE.Vector3(0, H * 0.53, 0), dist: Math.max(needV, needH) + radius }
   }, [height, radius, size.width, size.height])
+  const goalRef = useRef(goal)
+  useEffect(() => {
+    goalRef.current = goal
+  }, [goal])
+
+  useEffect(() => {
+    zoom.current = (factor) => {
+      const c = controls.current
+      if (!c) return
+      userZoom.current = THREE.MathUtils.clamp(userZoom.current * factor, ZOOM_MIN, ZOOM_MAX)
+      // While the view re-frames itself the tween takes the new distance up; otherwise move now.
+      if (!anim.current) {
+        dir.copy(camera.position).sub(c.target).normalize()
+        camera.position.copy(c.target).addScaledVector(dir, goalRef.current.dist * userZoom.current)
+        c.update()
+      }
+      invalidate()
+    }
+    return () => {
+      zoom.current = null
+    }
+  }, [zoom, camera, invalidate, dir])
 
   useEffect(() => {
     const c = controls.current
     if (!c) return
-    c.minDistance = goal.dist * 0.3
-    c.maxDistance = goal.dist * 1.8
+    c.minDistance = goal.dist * ZOOM_MIN
+    c.maxDistance = goal.dist * ZOOM_MAX
     if (!placed.current || reduced) {
       placed.current = true
       // First view: three-quarter front, a little below mid-height looking up.
-      const dir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(84), THREE.MathUtils.degToRad(28))
-      if (reduced && anim.current === null && c.target.lengthSq() > 0) dir.copy(camera.position).sub(c.target).normalize()
+      const d = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(84), THREE.MathUtils.degToRad(28))
+      if (reduced && anim.current === null && c.target.lengthSq() > 0) d.copy(camera.position).sub(c.target).normalize()
       c.target.copy(goal.target)
-      camera.position.copy(goal.target).addScaledVector(dir, goal.dist)
+      camera.position.copy(goal.target).addScaledVector(d, goal.dist * userZoom.current)
       c.update()
       invalidate()
       return
@@ -332,9 +398,9 @@ function FrameRig({ height, radius, zoom }: { height: number; radius: number; zo
     if (!c || !a) return
     a.t = Math.min(1, a.t + Math.min(dt, 0.05) / 0.7)
     const e = 1 - Math.pow(1 - a.t, 4) // ease-out
-    const dir = new THREE.Vector3().copy(camera.position).sub(c.target).normalize()
+    dir.copy(camera.position).sub(c.target).normalize()
     c.target.lerpVectors(a.from, goal.target, e)
-    camera.position.copy(c.target).addScaledVector(dir, a.fromDist + (goal.dist - a.fromDist) * e)
+    camera.position.copy(c.target).addScaledVector(dir, a.fromDist + (goal.dist * userZoom.current - a.fromDist) * e)
     c.update()
     if (a.t >= 1) anim.current = null
     invalidate()
@@ -354,3 +420,7 @@ function FrameRig({ height, radius, zoom }: { height: number; radius: number; zo
     />
   )
 }
+
+/** Zoom range as factors on the framing distance. */
+const ZOOM_MIN = 0.3
+const ZOOM_MAX = 1.8
