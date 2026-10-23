@@ -3,8 +3,7 @@
 @import "shadcn/tailwind.css";
 
 /* Tailwind scans the repo for class names; keep it out of folders that are not app source
-   (the legacy prototype, docs and agent notes). Paths are relative to this file. */
-@source not "../../legacy";
+   (docs and agent notes). Paths are relative to this file. */
 @source not "../../docs";
 @source not "../../.superpowers";
 @source not "../../.impeccable";
