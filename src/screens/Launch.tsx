@@ -237,8 +237,10 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
               playing={!done}
               frameKey={still ?? -1}
               onReady={onSceneReady}
+              // Under the HUD's clock and event line, above the drawing: never on the HUD itself.
+              noteClassName="absolute inset-x-3 top-[4.25rem]"
               fallback={
-                <div className="absolute inset-0 flex items-end justify-center px-4 pt-16 pb-14">
+                <div className="absolute inset-0 flex items-end justify-center px-4 pt-24 pb-14">
                   <StackElevation rocket={design.rocket} dropped={dropped} />
                 </div>
               }
@@ -311,6 +313,8 @@ function LaunchFlight({ launch }: { launch: LaunchOutcome }) {
             max={Math.max(stats.totalDv, Number.isFinite(required) ? required : 0) * 1.08}
             threshold={Number.isFinite(required) ? required : undefined}
             limit="floor"
+            // A failed launch already has its verdict (NO-GO below); a GO here would contradict it.
+            judge={!failure}
             thresholdLabel="required"
             unit="m/s"
           />
@@ -415,18 +419,12 @@ function LaunchHud({
           </span>
         </div>
         <div className="pointer-events-auto flex shrink-0 gap-2">
-          {onSkip ? (
-            <button type="button" onClick={onSkip} className={hudButton}>
-              <SkipForward aria-hidden />
-              Skip
+          {/* One button that changes its label, so keyboard focus stays on it after Skip. */}
+          {(onSkip || onReplay) && (
+            <button type="button" onClick={onSkip ?? onReplay} className={hudButton}>
+              {onSkip ? <SkipForward aria-hidden /> : <RotateCcw aria-hidden />}
+              {onSkip ? 'Skip' : 'Replay'}
             </button>
-          ) : (
-            onReplay && (
-              <button type="button" onClick={onReplay} className={hudButton}>
-                <RotateCcw aria-hidden />
-                Replay
-              </button>
-            )
           )}
         </div>
       </div>

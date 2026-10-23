@@ -58,6 +58,8 @@ export function Arrival() {
             reason={arrival?.reason}
             design={spacecraft}
             damaged={sim.damaged}
+            // The drawing keeps its scale caption along the bottom; the note goes on top.
+            noteClassName="absolute top-2 right-3 left-3"
             fallback={<ApproachDiagram vInfKms={vInf} captured={arrival ? arrival.captured : null} missKm={missKm} />}
           />
         </div>
@@ -90,7 +92,7 @@ export function Arrival() {
                 {inReach && enough
                   ? 'The approach is inside the capture corridor and the tanks hold enough propellant for the burn.'
                   : !inReach
-                    ? `The approach passes ${formatNumber(missKm)} km from Mars' centre, outside the ${formatNumber(CAPTURE_MAX_MISS_KM)} km capture corridor: the burn cannot capture.`
+                    ? `On the arrival date the spacecraft is ${formatNumber(missKm)} km from Mars' centre, outside the ${formatNumber(CAPTURE_MAX_MISS_KM)} km capture corridor: the burn cannot capture.`
                     : `The burn needs ${formatNumber(needKg, 1)} kg of propellant and ${formatNumber(sim.propellantKg, 1)} kg is left.`}
               </p>
             )}
@@ -100,15 +102,15 @@ export function Arrival() {
 
       <PlateActions>
         {!arrival ? (
-          <ActionButton onClick={() => completeArrival()} icon={<ArrowRight aria-hidden />}>
+          <ActionButton guardKey="burn" onClick={() => completeArrival()} icon={<ArrowRight aria-hidden />}>
             Fire the capture burn
           </ActionButton>
         ) : arrival.captured ? (
-          <ActionButton onClick={() => setPhase('ops')} icon={<ArrowRight aria-hidden />}>
+          <ActionButton guardKey="ops" onClick={() => setPhase('ops')} icon={<ArrowRight aria-hidden />}>
             Begin science operations
           </ActionButton>
         ) : (
-          <ActionButton onClick={() => setPhase('report')} icon={<ArrowRight aria-hidden />}>
+          <ActionButton guardKey="report" onClick={() => setPhase('report')} icon={<ArrowRight aria-hidden />}>
             Read the report
           </ActionButton>
         )}
@@ -130,7 +132,7 @@ function Outcome({ arrival, needKg }: { arrival: ArrivalResult; needKg: number }
   }
   const why =
     arrival.reason === 'miss'
-      ? `The spacecraft passed ${formatNumber(arrival.missKm)} km from Mars' centre, outside the ${formatNumber(CAPTURE_MAX_MISS_KM)} km capture corridor: no burn could stop it there.`
+      ? `On the arrival date the spacecraft was ${formatNumber(arrival.missKm)} km from Mars' centre, outside the ${formatNumber(CAPTURE_MAX_MISS_KM)} km capture corridor: no burn could stop it there.`
       : `The capture burn needed ${formatNumber(needKg, 1)} kg of propellant and only ${formatNumber(arrival.propellantLeftKg, 1)} kg was left.`
   return (
     <div className="border-t border-nogo pt-2">

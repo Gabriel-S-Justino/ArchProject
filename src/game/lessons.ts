@@ -122,7 +122,7 @@ export function lessons(history: MissionHistory): Lesson[] {
       id: 'miss',
       title: 'Missed Mars',
       text:
-        `The spacecraft passed ${fmt(missKm)} km from Mars' centre; capture needs ${fmt(CAPTURE_MAX_MISS_KM)} km or closer. ${done} ` +
+        `On the arrival date the spacecraft was ${fmt(missKm)} km from Mars' centre; capture needs ${fmt(CAPTURE_MAX_MISS_KM)} km or closer. ${done} ` +
         `Early corrections are cheaper: a small velocity error grows into a miss roughly in proportion to the time left, so a ` +
         `burn of a few m/s a month after launch fixes what takes far more near Mars.`,
       formula: 'miss ≈ δv × t_remaining',

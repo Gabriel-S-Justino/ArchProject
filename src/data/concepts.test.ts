@@ -3,6 +3,7 @@ import { buildGameView, defaultDesign, type GameViewState } from '@/app/store'
 import { REFERENCE_DESIGN, type MissionDesign } from '@/game/checklist'
 import { PHASES } from '@/game/flow'
 import { copyDesign } from '@/app/devParams'
+import type { PorkchopGrid } from '@/physics/porkchop'
 import { CONCEPTS, SIMPLIFICATIONS, conceptNumber, conceptsFor, fmt, sci } from './concepts'
 
 function viewOf(design: MissionDesign) {
@@ -12,14 +13,6 @@ function viewOf(design: MissionDesign) {
     seed: 1,
     porkchop: null,
     porkchopStatus: 'idle',
-    launched: false,
-    arrived: false,
-    opsDone: false,
-    launch: null,
-    cruise: null,
-    arrival: null,
-    ops: null,
-    result: null,
   }
   return buildGameView(state)
 }
@@ -86,6 +79,37 @@ describe('CONCEPTS', () => {
     expect(byId('c3')).toContain(fmt(view.transfer!.c3, 2))
     expect(byId('twr')).toContain(fmt(view.rocketStats.liftoffTwr, 2))
     expect(byId('inverse-square')).toContain(`${fmt(view.spacecraftStats.powerGenAtMarsW)} W`)
+  })
+
+  it('says a rocket below the liftoff minimum cannot lift off instead of printing an ascent budget', () => {
+    const design = copyDesign(REFERENCE_DESIGN)
+    // Stage 1 with three times its tanks and no boosters is far too heavy for its engines.
+    const s0 = design.rocket.stages[0]!
+    s0.tanks = [...s0.tanks, ...s0.tanks, ...s0.tanks]
+    s0.boosterCount = 0
+    const view = viewOf(design)
+    expect(view.rocketStats.liftoffTwr).toBeLessThan(1.1)
+    const byId = (id: string) => CONCEPTS.find((c) => c.id === id)!.live(view)
+    expect(byId('dv-map')).toMatch(/cannot lift off/)
+    expect(byId('dv-map')).not.toMatch(/= [\d,]+ m\/s/)
+    expect(byId('gravity-losses')).toMatch(/cannot lift off/)
+  })
+
+  it('says a stage without an engine adds no Δv instead of "= 0 m/s"', () => {
+    const design = copyDesign(REFERENCE_DESIGN)
+    design.rocket.stages[design.rocket.stages.length - 1]!.engineId = null
+    const s = CONCEPTS.find((c) => c.id === 'rocket-equation')!.live(viewOf(design))
+    expect(s).toMatch(/no engine on this stage/)
+    expect(s).not.toMatch(/= 0 m\/s/)
+  })
+
+  it('quotes the porkchop grid’s minimum C3 when no transfer is chosen', () => {
+    const state = { phase: 'design' as const, design: defaultDesign(), seed: 1, porkchopStatus: 'ready' as const }
+    const best = { depJd: 2461345, arrJd: 2461637, c3: 9.18, vInf: 2.6 }
+    const withGrid = buildGameView({ ...state, porkchop: { best } as unknown as PorkchopGrid })
+    expect(CONCEPTS.find((c) => c.id === 'c3')!.live(withGrid)).toContain('9.18')
+    const without = buildGameView({ ...state, porkchop: null })
+    expect(CONCEPTS.find((c) => c.id === 'c3')!.live(without)).not.toMatch(/\d km²/)
   })
 
   it('lists concepts for every playable phase', () => {

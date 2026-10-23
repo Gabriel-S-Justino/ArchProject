@@ -37,6 +37,9 @@
   --accent: oklch(0.72 0.14 52);
   --accent-ink: oklch(0.175 0.009 250);
   --accent-dim: oklch(0.72 0.14 52 / 16%);
+  /* Pointer feedback on the primary button: a step lighter on hover, darker while pressed. */
+  --accent-hover: oklch(0.77 0.14 52);
+  --accent-active: oklch(0.67 0.14 52);
 
   /* Status: avionics semantics. Always paired with a word (GO / CAUTION / NO-GO), never colour alone. */
   --go: oklch(0.8 0.135 152);
@@ -112,6 +115,8 @@
   --color-mars: var(--accent);
   --color-mars-ink: var(--accent-ink);
   --color-mars-dim: var(--accent-dim);
+  --color-mars-hover: var(--accent-hover);
+  --color-mars-active: var(--accent-active);
   --color-go: var(--go);
   --color-caution: var(--caution);
   --color-nogo: var(--nogo);

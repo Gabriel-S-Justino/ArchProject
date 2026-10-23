@@ -162,7 +162,7 @@ function TransferReadouts() {
     )
   }
   return (
-    <div className="grid grid-cols-2 gap-x-8 gap-y-6 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-x-8 gap-y-6 @2xl:grid-cols-4">
       <Readout
         label="Launch C3"
         value={transfer.c3}

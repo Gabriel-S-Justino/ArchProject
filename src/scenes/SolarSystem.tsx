@@ -157,7 +157,7 @@ function SolarSystem(props: SolarSystemProps) {
         <InvalidateOn value={live} />
         <Scene jd={sceneJd} transfer={transfer ?? null} preview={preview ?? null} arrival={arrivalRef} ship={ship ?? null} bodies={bodies} reduced={reduced} />
         <CameraRig focus={hasShip || focus !== 'ship' ? focus : 'sun'} bodies={bodies} zoom={zoom} reduced={reduced} aim={arrivalRef} jd={sceneJd} />
-        <LabelProjector items={items} els={els} />
+        <LabelProjector items={items} els={els} root={wrap} />
         <Preload all />
         <EffectComposer multisampling={4}>
           <Bloom mipmapBlur luminanceThreshold={1} luminanceSmoothing={0.2} intensity={0.75} radius={0.72} />
@@ -167,8 +167,8 @@ function SolarSystem(props: SolarSystemProps) {
       </Canvas>
       <LabelLayer items={items} els={els} />
 
-      {caption && <p className="num pointer-events-none absolute top-2.5 left-3 max-w-[calc(100%-14rem)] text-detail text-ink-2">{caption}</p>}
-      <div role="group" aria-label="Centre the view on" className="absolute top-2 right-2 flex border border-rule-strong bg-ground/80">
+      {caption && <p data-label-avoid className="num pointer-events-none absolute top-2.5 left-3 max-w-[calc(100%-14rem)] text-detail text-ink-2">{caption}</p>}
+      <div data-label-avoid role="group" aria-label="Centre the view on" className="absolute top-2 right-2 flex border border-rule-strong bg-ground/80">
         {options.map((f) => (
           <button
             key={f}
@@ -184,7 +184,7 @@ function SolarSystem(props: SolarSystemProps) {
           </button>
         ))}
       </div>
-      <div className={cn('absolute right-2 flex flex-col', reserveBottomRight ? 'top-11' : 'bottom-2')} role="group" aria-label="Zoom">
+      <div data-label-avoid className={cn('absolute right-2 flex flex-col', reserveBottomRight ? 'top-11' : 'bottom-2')} role="group" aria-label="Zoom">
         <button type="button" onClick={() => zoomBy(zoom.current, 1 / 1.35)} aria-label="Zoom in" className={zoomButton}>
           <Plus aria-hidden />
         </button>
@@ -192,7 +192,7 @@ function SolarSystem(props: SolarSystemProps) {
           <Minus aria-hidden />
         </button>
       </div>
-      <p className={cn('pointer-events-none absolute bottom-2 left-2 bg-ground/75 px-1.5 py-0.5 text-detail text-ink-3', reserveBottomRight ? 'max-w-[calc(100%-clamp(9rem,30%,12rem)-1.5rem)]' : 'max-w-[calc(100%-4.5rem)]')}>
+      <p data-label-avoid className={cn('pointer-events-none absolute bottom-2 left-2 bg-ground/75 px-1.5 py-0.5 text-detail text-ink-3', reserveBottomRight ? 'max-w-[calc(100%-clamp(9rem,30%,12rem)-1.5rem)]' : 'max-w-[calc(100%-4.5rem)]')}>
         {hint ? (
           <span className="text-ink-2">Ctrl + scroll to zoom</span>
         ) : (
@@ -415,7 +415,7 @@ function Ship({ ship, jd, bodies, reduced }: { ship: ShipView; jd: number; bodie
   const markerMat = useSpriteMaterial('diamond', RUST)
   const layout = useMemo(() => spacecraftLayout(ship.design, ship.damaged), [ship.design, ship.damaged])
   const scratch = useMemo(() => [0, 0, 0], [])
-  const tmp = useMemo(() => ({ x: new THREE.Vector3(), y: new THREE.Vector3(), z: new THREE.Vector3(), m: new THREE.Matrix4() }), [])
+  const tmp = useMemo(() => ({ x: new THREE.Vector3(), y: new THREE.Vector3(), z: new THREE.Vector3(), m: new THREE.Matrix4(), earth: new THREE.Vector3() }), [])
 
   useLayoutEffect(() => {
     bodies.hasShip = writeScene(ship.state.r, scratch)
@@ -423,9 +423,11 @@ function Ship({ ship, jd, bodies, reduced }: { ship: ShipView; jd: number; bodie
     bodies.shipR = layout.radius * SHIP_SCALE
     outer.current?.position.copy(bodies.ship)
     // High-gain dish (+y) at the Earth, the arrays' cell side (+z) turned as far towards the Sun
-    // as that allows.
-    if (model.current) {
-      tmp.y.copy(bodies.earth).sub(bodies.ship).normalize()
+    // as that allows. The Earth is computed here for this date: the scene writes bodies.earth in
+    // its own layout effect, which runs after this child's (stale on the first mount and each tick).
+    if (model.current && writeScene(bodyState('earth', jd).r, scratch)) {
+      tmp.earth.fromArray(scratch)
+      tmp.y.copy(tmp.earth).sub(bodies.ship).normalize()
       tmp.z.copy(bodies.ship).negate().normalize()
       tmp.z.addScaledVector(tmp.y, -tmp.z.dot(tmp.y))
       if (tmp.z.lengthSq() < 1e-8) tmp.z.set(0, 1, 0).addScaledVector(tmp.y, -tmp.y.y)

@@ -30,7 +30,8 @@ import { GameBalance } from './design/controls'
 import { AimTarget, CruiseMap } from './flight/CruiseMap'
 import { Fact, NoFlight, Plate, PlateActions, PlateTitle } from './flight/plate'
 
-const STOP_TEXT: Record<CruiseStopKind, string> = {
+const STOP_TEXT: Record<CruiseStopKind | 'stalled', string> = {
+  stalled: 'Time warp stopped: the orbit propagator could not move the spacecraft from here. Try a slower rate, or revise the design.',
   tcm: 'Time warp stopped: a trajectory correction window is open.',
   event: 'Time warp stopped: a solar flare.',
   approach: `Time warp stopped ${APPROACH_STOP_DAYS} days before arrival. No correction window is left: what you see is how you arrive.`,
@@ -76,11 +77,18 @@ function CruiseFlight({ cruise, transfer }: { cruise: CruiseProgress; transfer: 
   const inReach = predicted.missKm <= CAPTURE_MAX_MISS_KM
   const last = cruise.log[cruise.log.length - 1]
 
-  // A new decision scrolls into view (on a laptop screen it sits below the readouts).
+  // A new decision scrolls into view (on a laptop screen it sits below the readouts). It locks the
+  // warp's rates, so keyboard focus that was on them (or nowhere) moves to the decision's heading.
   const decisionRef = useRef<HTMLDivElement>(null)
+  const warpRef = useRef<HTMLDivElement>(null)
   const pendingKey = pending ? (pending.kind === 'tcm' ? pending.id : pending.event.id) : null
   useEffect(() => {
-    if (pendingKey) decisionRef.current?.scrollIntoView({ block: 'nearest' })
+    if (!pendingKey) return
+    decisionRef.current?.scrollIntoView({ block: 'nearest' })
+    const active = document.activeElement
+    if (!active || active === document.body || warpRef.current?.contains(active)) {
+      decisionRef.current?.querySelector<HTMLElement>('h2[tabindex]')?.focus({ preventScroll: true })
+    }
   }, [pendingKey])
 
   // The 3D view: a flare reaching the ship plays its hit once (keyed by the event) and centres on it.
@@ -130,6 +138,8 @@ function CruiseFlight({ cruise, transfer }: { cruise: CruiseProgress; transfer: 
               focus={focus}
               onFocusChange={setFocus}
               reserveBottomRight
+              // Left of the aim target in the bottom-right corner.
+              noteClassName="absolute bottom-2 left-3 right-[calc(clamp(9rem,30%,12rem)+1rem)]"
               fallback={<CruiseMap sim={sim} transfer={transfer} />}
             />
             <AimTarget sim={sim} className="absolute right-2 bottom-2 w-[clamp(9rem,30%,12rem)] border border-rule bg-ground-sunken" />
@@ -154,22 +164,27 @@ function CruiseFlight({ cruise, transfer }: { cruise: CruiseProgress; transfer: 
             <Readout label="Distance to Mars now" value={marsKm / 1e6} digits={1} unit="million km" hint={`${formatNumber(Math.max(0, sim.arrJd - sim.jd))} days to go`} />
           </div>
 
-          <TimeWarp rate={rate} onRateChange={setRate} onAdvance={onAdvance} lockedReason={lockedReason} />
+          <div ref={warpRef}>
+            <TimeWarp rate={rate} onRateChange={setRate} onAdvance={onAdvance} lockedReason={lockedReason} />
+          </div>
           {!pending && !atArrival && stop && (
             <p className="num -mt-4 text-detail text-ink-3">
               Next stop: {stopLabel(stop.kind, cruise)} on {formatJd(stop.jd)}, in {formatNumber(Math.ceil(stop.jd - sim.jd - 1e-6))} days.
             </p>
           )}
 
-          <div ref={decisionRef} aria-live="polite" className="flex scroll-mb-6 flex-col gap-2">
+          <div ref={decisionRef} className="flex scroll-mb-6 flex-col gap-2">
             {pending?.kind === 'tcm' && <TcmPrompt cruise={cruise} id={pending.id} />}
             {pending?.kind === 'event' && <FlarePrompt cruise={cruise} design={design} />}
-            {!pending && notice && <p className="text-small text-ink-2">{notice}</p>}
-            {last && (
-              <p className="num text-detail text-ink-3">
-                <span className="label-caps text-ink-2">Last decision</span> {formatJd(last.jd)} · {last.text}
-              </p>
-            )}
+            {/* Only the outcome lines are live: a decision card is reached by focus, not read out whole. */}
+            <div aria-live="polite" className="flex flex-col gap-2">
+              {!pending && notice && <p className="text-small text-ink-2">{notice}</p>}
+              {last && (
+                <p className="num text-detail text-ink-3">
+                  <span className="label-caps text-ink-2">Last decision</span> {formatJd(last.jd)} · {last.text}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -217,7 +232,7 @@ function TcmPrompt({ cruise, id }: { cruise: CruiseProgress; id: string }) {
 
   return (
     <section aria-labelledby={`tcm-${id}`} className="border-t-2 border-mars pt-3">
-      <h2 id={`tcm-${id}`} className="text-title font-semibold [font-stretch:88%]">
+      <h2 id={`tcm-${id}`} tabIndex={-1} className="text-title font-semibold [font-stretch:88%]">
         {id}: trajectory correction window
       </h2>
       <p className="mt-1 text-detail text-ink-2">

@@ -155,6 +155,7 @@ export function AimTarget({ sim, className }: { sim: CruiseState; className?: st
   return (
     <svg
       viewBox="-62 -62 124 136"
+      data-label-avoid
       className={className}
       role="img"
       aria-label={`On the arrival date the spacecraft will be ${formatNumber(missKm)} km from Mars' centre; capture needs ${formatNumber(CAPTURE_MAX_MISS_KM)} km or less.`}

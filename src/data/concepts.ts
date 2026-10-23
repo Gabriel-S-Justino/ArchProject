@@ -147,13 +147,20 @@ export const CONCEPTS: Concept[] = [
     analogy: 'A transit card: each leg of the journey takes a fare off the balance.',
     phases: ['briefing', 'report'],
     live: safe((v) => {
-      const ascent = ascentDeltaV(v.rocketStats.liftoffTwr)
-      const ascentText = Number.isFinite(ascent) ? `${fmt(ascent)} m/s` : 'not possible yet (the rocket cannot lift off)'
+      const twr = v.rocketStats.liftoffTwr
+      // Below the minimum the model would still clamp TWR and print a finite ascent: say it cannot fly.
+      const liftsOff = Number.isFinite(twr) && twr >= MIN_LIFTOFF_TWR
+      const ascent = liftsOff ? ascentDeltaV(twr) : Number.NaN
+      const ascentText = liftsOff
+        ? `${fmt(ascent)} m/s`
+        : Number.isFinite(twr) && twr > 0
+          ? `not possible: liftoff TWR ${fmt(twr, 2)} is below ${fmt(MIN_LIFTOFF_TWR, 1)}, so the rocket cannot lift off`
+          : 'not possible yet (the rocket cannot lift off)'
       const t = v.transfer
       if (!t) return `Ascent ${ascentText}. Departure and capture appear once you pick a transfer.`
       const dep = escapeBurn(MU_EARTH, PARKING_RADIUS_M, Math.sqrt(t.c3) * 1000)
       const cap = v.spacecraftStats.moiDvMs
-      if (!Number.isFinite(ascent)) return `Ascent ${ascentText} · departure ${fmt(dep)} m/s · capture ${fmt(cap)} m/s.`
+      if (!liftsOff) return `Ascent ${ascentText} · departure ${fmt(dep)} m/s · capture ${fmt(cap)} m/s.`
       return `Ascent ${fmt(ascent)} + departure ${fmt(dep)} + capture ${fmt(cap)} = ${fmt(ascent + dep + cap)} m/s.`
     }),
   },
@@ -230,7 +237,12 @@ export const CONCEPTS: Concept[] = [
     phases: ['design', 'launch', 'report'],
     live: safe((v) => {
       const t = v.transfer
-      if (!t) return 'No transfer yet. The lowest C3 of the 2026 window is about 9.2 km²/s² (31 Oct 2026 → 20 Aug 2027).'
+      if (!t) {
+        const best = v.porkchop?.best
+        return best
+          ? `No transfer yet. The lowest C3 of the window is ${fmt(best.c3, 2)} km²/s² (${formatJd(best.depJd)} → ${formatJd(best.arrJd)}).`
+          : 'No transfer yet. The porkchop plot finds the lowest C3 of the window once it is computed.'
+      }
       return `Your transfer leaves Earth at v∞ = ${fmt(Math.sqrt(t.c3), 2)} km/s, so C3 = ${fmt(t.c3, 2)} km²/s².`
     }),
   },
@@ -245,6 +257,9 @@ export const CONCEPTS: Concept[] = [
     live: safe((v) => {
       const st = v.rocketStats.stages.at(-1)
       if (!st) return 'Build a stage to see the calculation.'
+      if (!v.design.rocket.stages[st.index]?.engineId || !(st.ispUsed > 0))
+        return `${stageName(st.index)} has no engine on this stage: it adds mass but no Δv. Pick an engine to see the calculation.`
+      if (!(st.m0 > st.mf)) return `${stageName(st.index)} carries no propellant: its mass ratio is 1, ln 1 = 0, so it adds no Δv. Add a tank.`
       return `${stageName(st.index)}: ${fmt(st.ispUsed)} s × ${fmt(G0, 2)} × ln(${tons(st.m0)} t / ${tons(st.mf)} t) = ${fmt(st.dv)} m/s.`
     }),
   },
@@ -274,6 +289,8 @@ export const CONCEPTS: Concept[] = [
     live: safe((v) => {
       const twr = v.rocketStats.liftoffTwr
       if (!(Number.isFinite(twr) && twr > 0)) return 'Build a first stage that can lift off to see its ascent budget.'
+      if (twr < MIN_LIFTOFF_TWR)
+        return `Liftoff TWR ${fmt(twr, 2)} is below the ${fmt(MIN_LIFTOFF_TWR, 1)} minimum: the rocket cannot lift off, so there is no ascent budget. More thrust or less mass on stage 1 fixes it.`
       const used = Math.min(GRAVITY_LOSS_MAX_TWR, Math.max(MIN_LIFTOFF_TWR, twr))
       const clamped = used !== twr ? ` (the model counts TWR between ${fmt(MIN_LIFTOFF_TWR, 1)} and ${fmt(GRAVITY_LOSS_MAX_TWR, 1)})` : ''
       return `Liftoff TWR ${fmt(twr, 2)}${clamped} → ${fmt(ASCENT_DV)} + ${fmt(GRAVITY_LOSS_K)} × (1/${fmt(used, 2)} − 1/${fmt(ASCENT_REFERENCE_TWR, 1)}) = ${fmt(ascentDeltaV(twr))} m/s to reach the 200 km parking orbit (game balance, calibrated on NASA LSP curves).`

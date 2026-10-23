@@ -24,7 +24,7 @@ export function Briefing() {
   }, [loadPorkchop])
 
   return (
-    <div className="mx-auto flex w-full max-w-[68rem] flex-1 flex-col px-10 pt-12 pb-10">
+    <div className="mx-auto flex w-full max-w-[68rem] flex-1 flex-col px-10 pt-12">
       <h1 className="max-w-[18ch] text-display font-semibold tracking-[-0.025em] text-balance [font-stretch:84%]">
         {MISSION.name} briefing
       </h1>
@@ -33,7 +33,7 @@ export function Briefing() {
         and design the spacecraft; then you fly it and return as much science as you can within the budget.
       </p>
 
-      <div className="mt-10 flex flex-col gap-12">
+      <div className="mt-10 mb-12 flex flex-col gap-12">
         <div className="grid grid-cols-2 gap-x-8 gap-y-6 lg:grid-cols-4">
           <Readout label="Budget cap" value={MISSION.budgetM} unit="US$ M" hint={<>Rocket + spacecraft · <GameBalance /></>} />
           <Readout label="Science target" value={MISSION.scienceTarget} unit="points" hint={<>Mapping and buried ice · <GameBalance /></>} />
@@ -55,7 +55,9 @@ export function Briefing() {
         <DvMap />
       </div>
 
-      <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-3 pt-12">
+      {/* The plate is taller than a laptop screen: the action row sticks to the bottom edge of the
+          view (on a hairline over ground) so the next step is always in sight. */}
+      <div className="sticky bottom-0 z-10 -mx-10 mt-auto flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-rule bg-ground px-10 pt-4 pb-5">
         <ActionButton onClick={() => setPhase('design')} icon={<ArrowRight aria-hidden />}>
           Start design
         </ActionButton>

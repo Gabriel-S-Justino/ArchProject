@@ -57,7 +57,7 @@ export function SpacecraftTab() {
       </header>
 
       <section aria-label="Spacecraft budgets" className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 gap-x-8 gap-y-6 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-6 @2xl:grid-cols-4">
           <Readout
             label="Wet mass"
             value={sc.wetKg}
@@ -93,7 +93,7 @@ export function SpacecraftTab() {
           />
           <Readout label="Spacecraft cost" value={sc.costM} unit="US$ M" hint={<>Budget {formatNumber(MISSION.budgetM)} with the rocket · <GameBalance /></>} />
         </div>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-6 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-6 @2xl:grid-cols-4">
           <Readout label="Downlink at 1 AU" value={sc.rateMbpsAt1AU} digits={2} unit="Mbit/s" hint="All antennas together" />
           <Readout
             label="Downlink at arrival"
@@ -198,7 +198,10 @@ function PartRow({ part: p, count, onCount }: { part: SpacecraftPart; count: num
       </div>
       <div className="flex flex-col items-end gap-1 pt-0.5">
         <Stepper label={p.name} value={count} min={0} max={max} onChange={onCount} />
-        {p.max !== undefined && <span className="num text-label text-ink-3">max {p.max}</span>}
+        <span className="num text-label text-ink-3" title={p.max === undefined ? 'Limit set by the game (game balance), not by the part' : undefined}>
+          max {max}
+          {p.max === undefined && <span className="sr-only"> (game balance)</span>}
+        </span>
       </div>
     </li>
   )

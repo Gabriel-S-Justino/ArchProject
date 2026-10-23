@@ -34,7 +34,7 @@ import { RUST } from './TransferArc'
 
 export interface MarsArrivalProps {
   vInfKms: number
-  /** Predicted closest approach to Mars' centre, km. */
+  /** Distance from Mars' centre on the arrival date, km (the game's miss distance). */
   missKm: number
   /** null before the capture burn, then whether it captured. */
   captured: boolean | null
@@ -107,7 +107,7 @@ function MarsArrival(props: MarsArrivalProps) {
         ) : (
           <>
             To scale: Mars, the {flyby ? 'flyby' : 'approach'} hyperbola (e = {formatNumber(geo.h.e, 2)}){props.captured === false ? '' : ' and the capture orbit'}
-            {geo.clampedKm ? `; closest approach ${formatNumber(geo.clampedKm)} km from Mars' centre, drawn at ${formatNumber(geo.h.rp / 1000)} km` : ''}. The
+            {geo.clampedKm ? `; ${formatNumber(geo.clampedKm)} km from Mars' centre on the arrival date, drawn passing at ${formatNumber(geo.h.rp / 1000)} km` : ''}. The
             spacecraft is enlarged; time is compressed.
           </>
         )}
@@ -127,7 +127,7 @@ interface Geometry {
 }
 
 function geometry(vInfKms: number, missKm: number, captured: boolean | null, reason?: string): Geometry {
-  // A miss passes wide: draw its real closest approach, up to 90% of the capture apoapsis.
+  // A miss passes wide: draw it passing at its arrival-day distance, up to 90% of the capture apoapsis.
   const miss = captured === false && reason === 'miss'
   const missM = Number.isFinite(missKm) ? missKm * 1000 : Infinity
   const rp = miss ? Math.max(RP, Math.min(missM, RA * 0.9)) : RP

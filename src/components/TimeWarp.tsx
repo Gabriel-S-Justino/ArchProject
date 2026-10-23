@@ -3,7 +3,7 @@
 // window, a flare, the approach or arrival) the warp pauses itself. It cannot run while a decision
 // is pending (`lockedReason`). Under reduced motion it works the same: nothing here eases.
 import { Pause, Play } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type KeyboardEvent } from 'react'
 import { cn } from '@/lib/utils'
 
 /** Days of mission time per second of real time; 0 is paused. */
@@ -54,6 +54,22 @@ export function TimeWarp({ rate, onRateChange, onAdvance, lockedReason, classNam
     if (lockedReason && rate !== 0) change.current(0)
   }, [lockedReason, rate])
 
+  // ARIA radio group: one tab stop (the checked rate), arrow keys move and select among the enabled rates.
+  const buttons = useRef<(HTMLButtonElement | null)[]>([])
+  const enabled = (r: WarpRate) => !lockedReason || r === 0
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+    const edge = e.key === 'Home' ? 'first' : e.key === 'End' ? 'last' : null
+    if (!dir && !edge) return
+    e.preventDefault()
+    const choices = WARP_RATES.filter(enabled)
+    const current = choices.indexOf(running ? rate : 0)
+    const i = edge === 'first' ? 0 : edge === 'last' ? choices.length - 1 : (Math.max(0, current) + dir + choices.length) % choices.length
+    const next = choices[i] ?? 0
+    onRateChange(next)
+    buttons.current[WARP_RATES.indexOf(next)]?.focus()
+  }
+
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       <div className="flex items-baseline justify-between gap-3">
@@ -62,15 +78,23 @@ export function TimeWarp({ rate, onRateChange, onAdvance, lockedReason, classNam
         </span>
         <span className="num text-detail text-ink-3">{running ? `${rate} day${rate === 1 ? '' : 's'} per second` : 'Paused'}</span>
       </div>
-      <div role="radiogroup" aria-labelledby="warp-label" aria-describedby={lockedReason ? 'warp-locked' : undefined} className="flex h-9 border border-rule-strong">
-        {WARP_RATES.map((r) => {
+      <div
+        role="radiogroup"
+        aria-labelledby="warp-label"
+        aria-describedby={lockedReason ? 'warp-locked' : undefined}
+        onKeyDown={onKeyDown}
+        className="flex h-9 border border-rule-strong"
+      >
+        {WARP_RATES.map((r, i) => {
           const checked = r === 0 ? !running : running && r === rate
           return (
             <button
               key={r}
+              ref={(el) => void (buttons.current[i] = el)}
               type="button"
               role="radio"
               aria-checked={checked}
+              tabIndex={checked ? 0 : -1}
               disabled={Boolean(lockedReason) && r !== 0}
               onClick={() => onRateChange(r)}
               title={lockedReason && r !== 0 ? lockedReason : undefined}

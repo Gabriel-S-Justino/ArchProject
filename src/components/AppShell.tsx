@@ -5,6 +5,7 @@ import { missionClock } from '@/app/missionClock'
 import { canEnterPhase, useGame, useTransfer, type DesignTab, type PhaseGateState } from '@/app/store'
 import { MISSION } from '@/data/mission'
 import type { Phase } from '@/game/flow'
+import { useSettled } from '@/lib/useSettled'
 import { cn } from '@/lib/utils'
 import { formatJd } from '@/physics/time'
 import { PhysicsPanel } from './PhysicsPanel'
@@ -38,6 +39,9 @@ const TAB_CONCEPTS: Record<DesignTab, string[]> = {
 }
 
 const PANEL_KEY = 'mission-architect:physics-panel-collapsed'
+
+/** The clock's live region speaks once the date has held still this long, ms. */
+const CLOCK_SETTLE_MS = 700
 
 function readCollapsed(): boolean {
   try {
@@ -140,6 +144,9 @@ function TopBar() {
   // The start of the turn about to run; once operations are over, the end of the last turn.
   const opsJd = useGame((s) => (s.ops ? s.ops.startJd + s.ops.turn * MISSION.turnDays : null))
   const clock = missionClock(phase, transfer, { cruiseJd, opsJd })
+  const date = formatJd(clock.jd)
+  // The clock runs every frame in time warp: announce it only once it stops (a warp stop, a turn).
+  const announced = useSettled(`${clock.label}: ${date}`, CLOCK_SETTLE_MS)
 
   return (
     <header className="flex h-(--topbar-h) items-stretch gap-6 border-b border-rule bg-ground px-5">
@@ -160,10 +167,13 @@ function TopBar() {
       <PhaseStepper key={epoch} />
 
       <div className="flex shrink-0 items-center gap-5">
-        <div className="flex flex-col items-end justify-center" aria-live="polite">
+        <div className="flex flex-col items-end justify-center" data-clock aria-hidden>
           <span className="label-caps text-ink-3">{clock.label}</span>
-          <RollingText text={formatJd(clock.jd)} className="num text-title font-medium text-ink [font-stretch:92%]" />
+          <RollingText text={date} className="num text-title font-medium text-ink [font-stretch:92%]" />
         </div>
+        <p className="sr-only" aria-live="polite" data-clock-live>
+          {announced}
+        </p>
         <button
           type="button"
           onClick={() => setPhase('sources')}

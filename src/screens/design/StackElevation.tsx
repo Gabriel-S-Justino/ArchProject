@@ -1,62 +1,53 @@
 // A side elevation of the rocket, drawn to scale from the catalog's tank and booster dimensions, like
 // the vehicle outline in a launch-vehicle user's guide. It fills the hangar and launch slots while the
 // 3D scenes load, and stays there when WebGL is unavailable.
-import { boosterById } from '@/data/boosters'
-import { engineById } from '@/data/engines'
-import { tankById } from '@/data/tanks'
+import { formatNumber } from '@/components/status'
 import { FAIRINGS, type RocketDesign } from '@/physics/launcher'
-
-/** Height of an engine section (thrust structure + bells), m. Drawing only. */
-const ENGINE_BAY_M = 3.2
-/** Fairing outline per option (diameter, length), m. Drawing only, close to real 4 m / 5.4 m class fairings. */
-const FAIRING_SHAPE: Record<RocketDesign['fairing'], { d: number; l: number }> = {
-  small: { d: 4.6, l: 11 },
-  large: { d: 5.4, l: 13.5 },
-}
+import { rocketLayout } from '@/scenes/rocketLayout'
 
 interface Block {
   stage: number
+  /** Bottom of the stage (nozzle exit plane) and top of its tanks or interstage, m. */
   y0: number
   y1: number
+  /** Top of the engine section (where the tanks start), m. */
+  bay: number
   d: number
   engines: number
-  /** Tank boundaries (heights from the stage's base), for hairlines between stacked tanks. */
+  /** Heights of the joints between stacked tanks, m from the pad. */
   joints: number[]
   wrong: boolean
 }
 
+/**
+ * The stack's outline from rocketLayout, the same function the 3D hangar and launch use, so the
+ * drawing and the 3D callouts give the same heights.
+ */
 function layout(r: RocketDesign) {
-  const blocks: Block[] = []
-  let y = 0
-  r.stages.forEach((s, i) => {
-    const tanks = s.tanks.map((id) => tankById(id)).filter((t) => t !== undefined)
-    const e = s.engineId ? engineById(s.engineId) : undefined
-    const d = tanks.length ? Math.max(...tanks.map((t) => t.diameterM)) : 3
-    const joints: number[] = []
-    let h = ENGINE_BAY_M
-    for (const t of tanks) {
-      h += t.lengthM
-      joints.push(h)
+  const l = rocketLayout(r)
+  const blocks: Block[] = l.stages.map((st) => {
+    const design = r.stages[st.index]
+    const prop = st.engines?.propellant
+    return {
+      stage: st.index,
+      y0: st.y0,
+      y1: st.y1,
+      bay: st.aft.y1,
+      d: st.diameter,
+      engines: st.engines ? Math.min(5, Math.max(1, design?.engineCount || 1)) : 0,
+      joints: st.joints,
+      wrong: prop !== undefined && st.tanks.some((t) => t.propellant !== prop),
     }
-    if (tanks.length === 0) h += 2
-    blocks.push({
-      stage: i,
-      y0: y,
-      y1: y + h,
-      d,
-      engines: e ? Math.min(5, Math.max(1, s.engineCount || 1)) : 0,
-      joints: joints.slice(0, -1),
-      wrong: tanks.some((t) => e !== undefined && t.propellant !== e.propellant),
-    })
-    y += h
   })
-  const top = blocks.at(-1)
-  const f = FAIRING_SHAPE[r.fairing] ?? FAIRING_SHAPE.small
-  const fairing = { y0: y, y1: y + f.l, d: Math.max(f.d, top?.d ?? 0) }
-  const s0 = r.stages[0]
-  const b = s0?.boosterId ? boosterById(s0.boosterId) : undefined
-  const nb = b ? Math.min(6, Math.max(0, s0?.boosterCount ?? 0)) : 0
-  return { blocks, fairing, booster: b && nb > 0 ? { n: nb, d: b.diameterM, l: b.lengthM } : null, height: fairing.y1 }
+  const f = l.fairing
+  const fairing = f ? { y0: f.y0, y1: f.y1, d: f.diameter } : { y0: 0, y1: 0, d: 0 }
+  const b = l.boosters
+  return {
+    blocks,
+    fairing,
+    booster: b ? { n: b.count, d: b.diameter, l: b.length } : null,
+    height: l.height,
+  }
 }
 
 /** Parts already dropped in flight (the launch screen ticks them off); drawn as faint outlines. */
@@ -117,7 +108,7 @@ export function StackElevation({ rocket, dropped }: { rocket: RocketDesign; drop
               return (
                 <path
                   key={k}
-                  d={`M${cx - bellW * 0.22},${yOf(b.y0 + 1.6)} L${cx - bellW * 0.45},${yOf(b.y0 + 0.15)} H${cx + bellW * 0.45} L${cx + bellW * 0.22},${yOf(b.y0 + 1.6)} Z`}
+                  d={`M${cx - bellW * 0.22},${yOf(b.bay)} L${cx - bellW * 0.45},${yOf(b.y0 + 0.15)} H${cx + bellW * 0.45} L${cx + bellW * 0.22},${yOf(b.bay)} Z`}
                   fill="var(--ground-sunken)"
                   stroke={stroke}
                   strokeWidth={0.1}
@@ -128,13 +119,13 @@ export function StackElevation({ rocket, dropped }: { rocket: RocketDesign; drop
               x={-r}
               y={yOf(b.y1)}
               width={b.d}
-              height={b.y1 - b.y0 - 1.6}
+              height={Math.max(0.1, b.y1 - b.bay)}
               fill="var(--ground-raised)"
               stroke={b.wrong ? 'var(--nogo)' : stroke}
               strokeWidth={0.14}
             />
             {b.joints.map((j) => (
-              <line key={j} x1={-r} x2={r} y1={yOf(b.y0 + j)} y2={yOf(b.y0 + j)} stroke="var(--rule-strong)" strokeWidth={0.1} />
+              <line key={j} x1={-r} x2={r} y1={yOf(j)} y2={yOf(j)} stroke="var(--rule-strong)" strokeWidth={0.1} />
             ))}
             <text x={r + 0.8} y={yOf((b.y0 + b.y1) / 2) + 0.6} fontSize={1.7} fill="var(--ink-3)" className="num">
               S{b.stage + 1}
@@ -156,7 +147,7 @@ export function StackElevation({ rocket, dropped }: { rocket: RocketDesign; drop
         </path>
       )}
       <text x={halfW - 1} y={yOf(height) - 1} textAnchor="end" fontSize={1.7} fill="var(--ink-2)" className="num">
-        {height.toFixed(0)} m
+        {formatNumber(height, 1)} m
       </text>
     </svg>
   )
@@ -164,5 +155,5 @@ export function StackElevation({ rocket, dropped }: { rocket: RocketDesign; drop
 
 function describe(r: RocketDesign, height: number): string {
   if (r.stages.length === 0) return 'Stack elevation: no stages yet'
-  return `Stack elevation to scale: ${r.stages.length} stage${r.stages.length === 1 ? '' : 's'}, about ${Math.round(height)} m tall with the fairing`
+  return `Stack elevation to scale: ${r.stages.length} stage${r.stages.length === 1 ? '' : 's'}, ${formatNumber(height, 1)} m tall with the fairing`
 }

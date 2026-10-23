@@ -17,6 +17,7 @@ import {
 } from '@/app/store'
 import { ActionButton } from '@/components/ActionButton'
 import { Checklist } from '@/components/Checklist'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Gauge } from '@/components/Gauge'
 import { formatNumber } from '@/components/status'
 import { MISSION } from '@/data/mission'
@@ -110,6 +111,12 @@ function DesignRail({ onOpenTab }: { onOpenTab: (t: DesignTab) => void }) {
   const design = useGame((s) => s.design)
   const override = useMemo(() => selectLaunchOverride({ design }), [design])
   const [confirming, setConfirming] = useState(false)
+  // Launching again while this design is flying starts the flight over: ask first.
+  const [restart, setRestart] = useState<{ override: boolean } | null>(null)
+  const launch = (override: boolean) => {
+    if (launched) setRestart({ override })
+    else startLaunch(override ? { override: true } : undefined)
+  }
   const noGo = checklist.filter((i) => !i.ok).length
   const limit = MISSION.launchMargin * capacity
   const cost = rocket.costM + sc.costM
@@ -168,7 +175,7 @@ function DesignRail({ onOpenTab }: { onOpenTab: (t: DesignTab) => void }) {
             <span className="label-caps">Caution</span> This design is flying. Any change scrubs the flight and starts again from the pad.
           </p>
         )}
-        <ActionButton disabled={!canLaunch} onClick={() => startLaunch()} icon={<ArrowRight aria-hidden />} className="w-full justify-between">
+        <ActionButton disabled={!canLaunch} onClick={() => launch(false)} icon={<ArrowRight aria-hidden />} className="w-full justify-between">
           Launch
         </ActionButton>
         <p className="text-detail text-ink-3" aria-live="polite">
@@ -182,7 +189,7 @@ function DesignRail({ onOpenTab }: { onOpenTab: (t: DesignTab) => void }) {
                 the pad or fall short of Mars, and the report will show why.
               </p>
               <div className="flex gap-2">
-                <ActionButton tone="quiet" onClick={() => startLaunch({ override: true })}>
+                <ActionButton tone="quiet" onClick={() => launch(true)}>
                   Launch anyway
                 </ActionButton>
                 <ActionButton tone="quiet" onClick={() => setConfirming(false)}>
@@ -200,6 +207,19 @@ function DesignRail({ onOpenTab }: { onOpenTab: (t: DesignTab) => void }) {
             </button>
           ))}
       </div>
+      <ConfirmDialog
+        open={restart !== null}
+        onOpenChange={(open) => !open && setRestart(null)}
+        title="Restart the mission?"
+        confirm="Restart from the pad"
+        cancel="Keep flying"
+        onConfirm={() => {
+          startLaunch(restart?.override ? { override: true } : undefined)
+          setRestart(null)
+        }}
+      >
+        This design is already flying. Launching again starts a new flight from the pad: your flight so far will be lost.
+      </ConfirmDialog>
     </aside>
   )
 }

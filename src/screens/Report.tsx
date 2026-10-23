@@ -2,7 +2,7 @@
 // mission's own numbers in it), the whole mission drawn to scale, the lessons tied to the physics,
 // and a factual comparison with two real NASA Mars orbiters.
 import { ArrowLeft, ArrowRight, ExternalLink, Star } from 'lucide-react'
-import { useGame, useSpacecraftStats, useTransfer } from '@/app/store'
+import { SEED_FIXED, useGame, useSpacecraftStats, useTransfer } from '@/app/store'
 import { ActionButton } from '@/components/ActionButton'
 import { Formula } from '@/components/PhysicsPanel'
 import { Readout } from '@/components/Readout'
@@ -143,7 +143,11 @@ function ReportPlate({ report }: { report: MissionReport }) {
           <ArrowLeft aria-hidden className="size-4" />
           Revise design
         </ActionButton>
-        <p className="text-detail text-ink-3">Fly again starts a new mission with a new seed; Revise design keeps this design and these events.</p>
+        <p className="text-detail text-ink-3">
+          {SEED_FIXED
+            ? 'Fly again starts a new mission with the same events (the page address fixes the seed); Revise design keeps this design and these events.'
+            : 'Fly again starts a new mission with new events; Revise design keeps this design and these events.'}
+        </p>
       </PlateActions>
     </Plate>
   )

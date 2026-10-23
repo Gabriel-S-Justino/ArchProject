@@ -35,7 +35,7 @@ export function DecisionCard({ event, jd, options, onChoose, note, className }: 
   return (
     <section aria-labelledby={`decision-${event.id}`} className={cn('border-t-2 border-mars pt-3', className)}>
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id={`decision-${event.id}`} className="text-title font-semibold [font-stretch:88%]">
+        <h2 id={`decision-${event.id}`} tabIndex={-1} className="text-title font-semibold [font-stretch:88%]">
           Solar flare, class {f.classType}
         </h2>
         <span className={cn('label-caps shrink-0', severe ? 'text-nogo' : 'text-caution')}>{severe ? 'Severe' : 'Moderate'}</span>

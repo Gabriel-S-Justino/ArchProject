@@ -370,9 +370,17 @@ export function tooltipPlacement(
   ]
   const fits = (p: { left: number; top: number }) => p.left >= 0 && p.left + w <= W && p.top >= 0 && p.top + h <= H + belowSlack
   const clear = (p: { left: number; top: number }) => !avoid.some((b) => overlaps(b, { x: p.left, y: p.top, w, h }))
+  // Pushed back inside the plot (a corner near an edge slides along it rather than leaving it).
+  const inside = (p: { left: number; top: number }) => ({
+    left: Math.min(Math.max(p.left, 0), Math.max(0, W - w)),
+    top: Math.min(Math.max(p.top, 0), Math.max(0, H + belowSlack - h)),
+  })
   const candidates = order.map(([r, b]) => at(r, b))
-  const pick = candidates.find((p) => fits(p) && clear(p)) ?? candidates.find(fits) ?? candidates[0]!
-  return { left: Math.min(Math.max(pick.left, 0), Math.max(0, W - w)), top: pick.top }
+  return (
+    candidates.find((p) => fits(p) && clear(p)) ??
+    candidates.map(inside).find(clear) ??
+    inside(candidates.find(fits) ?? candidates[0]!)
+  )
 }
 
 /**

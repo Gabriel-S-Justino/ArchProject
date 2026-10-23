@@ -75,7 +75,7 @@ function LaunchScene(props: LaunchSceneProps) {
         camera={{ fov: 36, near: 0.5, far: 30000, position: [80, 4, 120] }}
         gl={{ antialias: false, powerPreference: 'high-performance', stencil: false }}
         role="img"
-        aria-label="Launch view: the rocket lifts off, separates its stages and reaches orbit"
+        aria-label={launchViewLabel(props.schedule.failure)}
       >
         <Invalidate keys={[props.frameKey, props.playing, live]} />
         <Flight {...props} />
@@ -90,6 +90,20 @@ function LaunchScene(props: LaunchSceneProps) {
       </Canvas>
     </div>
   )
+}
+
+/** What the view shows, by how the flight ends. */
+export function launchViewLabel(failure: LaunchSchedule['failure']): string {
+  switch (failure) {
+    case 'pad':
+      return 'Launch view: the engines light, but the rocket is too heavy to climb and the flight is aborted on the pad'
+    case 'orbit':
+      return 'Launch view: the rocket lifts off and separates its stages, then runs out of Δv before reaching orbit'
+    case 'departure':
+      return 'Launch view: the rocket reaches the parking orbit, but the upper stage cannot finish the departure burn to Mars'
+    default:
+      return 'Launch view: the rocket lifts off, separates its stages, reaches the parking orbit and fires the departure burn to Mars'
+  }
 }
 
 function Invalidate({ keys }: { keys: unknown[] }) {

@@ -104,7 +104,7 @@ export function Ops() {
 
       {over && (
         <PlateActions>
-          <ActionButton onClick={() => finishMission()} icon={<ArrowRight aria-hidden />}>
+          <ActionButton guardKey="report" onClick={() => finishMission()} icon={<ArrowRight aria-hidden />}>
             Read the report
           </ActionButton>
         </PlateActions>
@@ -241,7 +241,7 @@ function Planner({ ops, design, damaged }: { ops: OpsState; design: MissionDesig
       />
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <ActionButton onClick={() => runOpsTurn({ instrumentsOn: on })} disabled={load > limits.maxLoadW + 1e-9} icon={<ArrowRight aria-hidden />}>
+        <ActionButton guardKey={ops.turn} onClick={() => runOpsTurn({ instrumentsOn: on })} disabled={load > limits.maxLoadW + 1e-9} icon={<ArrowRight aria-hidden />}>
           Run turn {ops.turn + 1}
         </ActionButton>
         <p className="num text-detail text-ink-3">

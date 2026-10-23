@@ -16,6 +16,8 @@ import {
   flightLaunch,
   flightOpsTurn,
   flightReport,
+  nextStop,
+  pendingDecision,
   skipTcm as skipTcmNow,
   tickCruise as tickCruiseBy,
   type CruiseProgress,
@@ -113,7 +115,7 @@ export interface GameState {
    * Advances the cruise by up to `days`, stopping exactly at the next TCM window, flare, 3 days
    * before arrival or arrival. Returns the stop reached, or null. Nothing moves while a decision is pending.
    */
-  tickCruise: (days: number) => CruiseStopKind | null
+  tickCruise: (days: number) => CruiseStopKind | 'stalled' | null
   /** Burns the TCM due now; false when none is due or the ship cannot afford it. */
   burnTcm: () => boolean
   /** Lets the TCM window due now pass; false when none is due. */
@@ -184,6 +186,9 @@ export function gameData(start: DevStartState): GameData {
 }
 
 const SEARCH = typeof window !== 'undefined' ? window.location.search : ''
+
+/** The page address fixes the seed (?seed=): a new game replays the same events (R30). */
+export const SEED_FIXED = hasSeedParam(SEARCH)
 
 /** Dev flags are read once, when the store is created; node (tests) has no window. */
 function initialDevParams(): DevParams {
@@ -331,6 +336,9 @@ export const useGame = create<GameState>()((set, get) => ({
     if (!c) return null
     const { progress, stopped } = tickCruiseBy(c, days)
     if (progress !== c) set({ cruise: progress })
+    // Time should have moved (no decision pending, a stop ahead) but the propagator returned the
+    // same state: report it so the warp stops instead of spinning on the same date.
+    else if (stopped === null && days > 0 && !pendingDecision(c) && nextStop(c)) return 'stalled'
     return stopped
   },
   burnTcm: () => {
@@ -494,29 +502,15 @@ export function useCanLaunch(): boolean {
 export const useCapacityKg = () => useDerived(selectCapacityKg)
 
 // ---------------------------------------------------------------------------------------------
-// GameView (ruling R4): the store's data plus everything derived from the design, as one read-only
-// snapshot. The Physics panel's CONCEPTS[*].live(view) and later screens read it. It deliberately
-// leaves out the pointer state (hoverTransfer) and UI state (designTab): the panel re-renders with
-// the view, and hovering the porkchop plot must not re-render it. `porkchop` stays: it changes once,
-// when the grid arrives.
+// GameView (ruling R4): the design-side data plus everything derived from the design, as one
+// read-only snapshot. The Physics panel's CONCEPTS[*].live(view) reads it. It deliberately leaves
+// out the pointer state (hoverTransfer), the UI state (designTab) and the flight (launch, cruise,
+// arrival, ops, result): no concept reads them, and the cruise changes every frame in time warp, so
+// the panel would re-render with every frame. `porkchop` stays: it changes once, when the grid
+// arrives.
 
-/** The store's data fields (no actions, no pointer or UI state). */
-export type GameViewState = Pick<
-  GameState,
-  | 'phase'
-  | 'design'
-  | 'seed'
-  | 'porkchop'
-  | 'porkchopStatus'
-  | 'launched'
-  | 'arrived'
-  | 'opsDone'
-  | 'launch'
-  | 'cruise'
-  | 'arrival'
-  | 'ops'
-  | 'result'
->
+/** The store's data fields the concepts read (no actions, no pointer, UI or flight state). */
+export type GameViewState = Pick<GameState, 'phase' | 'design' | 'seed' | 'porkchop' | 'porkchopStatus'>
 
 export interface GameView extends GameViewState {
   /** Lambert transfer for the chosen dates; null with none chosen or none valid. */
@@ -546,14 +540,6 @@ const selectViewState = (s: GameState): GameViewState => ({
   seed: s.seed,
   porkchop: s.porkchop,
   porkchopStatus: s.porkchopStatus,
-  launched: s.launched,
-  arrived: s.arrived,
-  opsDone: s.opsDone,
-  launch: s.launch,
-  cruise: s.cruise,
-  arrival: s.arrival,
-  ops: s.ops,
-  result: s.result,
 })
 
 /**

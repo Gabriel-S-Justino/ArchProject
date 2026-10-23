@@ -166,11 +166,18 @@ export function burnTcm(p: CruiseProgress): CruiseProgress | null {
         kind: 'tcm',
         title: d.id,
         ref: d.id,
-        text: `${d.id} burned ${tcm.dvMs.toFixed(2)} m/s using ${kg.toFixed(1)} kg of propellant.`,
+        // Below what the log can print (0.00 m/s) the burn is a trim: say so instead of a zero.
+        text:
+          tcm.dvMs < TCM_LOG_MIN_MS
+            ? `${d.id}: no correction needed (under ${TCM_LOG_MIN_MS} m/s); the arc was already on target.`
+            : `${d.id} burned ${tcm.dvMs.toFixed(2)} m/s using ${kg.toFixed(1)} kg of propellant.`,
       },
     ],
   }
 }
+
+/** A TCM smaller than this (m/s) is logged as "no correction needed" rather than "0.00 m/s". Wording only. */
+export const TCM_LOG_MIN_MS = 0.05
 
 /** Lets the TCM window due now pass without a burn. Null when no TCM is due. */
 export function skipTcm(p: CruiseProgress): CruiseProgress | null {

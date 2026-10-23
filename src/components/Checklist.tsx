@@ -68,7 +68,6 @@ export function Checklist({
                 <button
                   type="button"
                   onClick={() => onSelectItem(item)}
-                  title={selectItemHint?.(item)}
                   className={cn(
                     'text-left font-medium text-ink underline-offset-4 decoration-rule-strong hover:underline',
                     compact ? 'text-detail' : 'text-small',

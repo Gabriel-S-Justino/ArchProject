@@ -217,7 +217,7 @@ function PresetPicker({ rocket, currentId, c3 }: { rocket: RocketDesign; current
       <SectionHeading id="rocket-presets" aside={current ? 'Preset applied' : rocket.stages.length ? 'Custom stack' : undefined}>
         Start from a preset
       </SectionHeading>
-      <div role="radiogroup" aria-labelledby="rocket-presets" className="grid gap-x-8 sm:grid-cols-2">
+      <div role="radiogroup" aria-labelledby="rocket-presets" className="grid gap-x-8 @xl:grid-cols-2">
         {PICKER_PRESETS.map((p) => {
           const checked = p.id === currentId
           const cap = c3 !== null ? capacityKgFor(p.rocket, c3) : null
@@ -296,7 +296,7 @@ function StageEditor({
   const propKg = stage.tanks.reduce((a, id) => a + (tankById(id)?.propellantKg ?? 0), 0)
 
   return (
-    <li aria-labelledby={headingId} className="border-t border-rule-strong py-4">
+    <li aria-labelledby={headingId} className="@container border-t border-rule-strong py-4">
       <div className="flex items-baseline justify-between gap-3">
         <h4 id={headingId} className="text-small font-semibold">
           {label}
@@ -442,7 +442,7 @@ function StageEditor({
       </div>
 
       {/* Stage readouts */}
-      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 @lg:grid-cols-4">
         <MiniStat label="Δv" value={formatNumber(stat?.dv ?? 0)} unit="m/s" hint={`${t(propKg)} t propellant`} />
         <MiniStat
           label={i === 0 ? 'Liftoff TWR' : 'Ignition TWR'}

@@ -292,6 +292,18 @@ describe('flight actions (Task 13)', () => {
     expect(get().cruise!.decidedTcms).toEqual(['TCM-1'])
   })
 
+  it('tickCruise reports a stall when the propagator cannot move the ship (the warp stops instead of spinning)', () => {
+    loadReference()
+    get().startLaunch()
+    get().beginCruise()
+    const c = get().cruise!
+    // A ship state the propagator cannot advance: advanceCruise returns it unchanged.
+    useGame.setState({ cruise: { ...c, sim: { ...c.sim, ship: { r: [Number.NaN, 0, 0], v: [0, 0, 0] } } } })
+    const jd = get().cruise!.sim.jd
+    expect(get().tickCruise(1)).toBe('stalled')
+    expect(get().cruise!.sim.jd).toBe(jd)
+  })
+
   it('a launch against a no-go TWR fails on the pad and computes the report at once', async () => {
     const { selectLaunchOverride, canEnterPhase } = await import('./store')
     loadReference()
