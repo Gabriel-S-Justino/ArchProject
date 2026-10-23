@@ -35,12 +35,13 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     id: 'porkchop-validation',
-    title: 'Best 2026 Earth→Mars transfer found by the game',
-    provider: 'Computed: the game’s Lambert solver on JPL Horizons DE441/mar099 vectors',
-    url: 'https://ssd.jpl.nasa.gov/horizons/',
-    fetched: READ,
+    title:
+      'Interplanetary Mission Design Handbook: Earth-to-Mars Mission Opportunities 2026 to 2045 (NASA/TM-2010-216764), Table 2',
+    provider: 'NASA Glenn Research Center — L. M. Burke, R. D. Falck, M. L. McGuire (2010), via NASA NTRS',
+    url: 'https://ntrs.nasa.gov/citations/20100037210',
+    fetched: '2026-10-23',
     usedFor:
-      'Validation of the porkchop plot: minimum C3 9.1835 km²/s², departure 2026-10-31, arrival 2027-08-20 (293 days), arrival v∞ 2.71 km/s — in line with the 2026 Mars window.',
+      'Validation of the porkchop plot (src/physics/porkchop.test.ts). Handbook 2026 minimum C3 (ballistic, Type II): 9.144 km²/s², depart 2026-10-31, arrive 2027-08-19 (292 days), arrival v∞ 2.729 km/s. The game’s Lambert grid on JPL Horizons vectors: 9.18 km²/s², 2026-10-31 → 2027-08-20 (293 days), 2.71 km/s. Type I minimum: handbook 11.11 (2026-11-14 → 2027-08-09), game 10.91 (2026-11-14 → 2027-08-11). Tested tolerance: C3 ±0.3 km²/s², dates ±3 days.',
   },
   // Space weather
   {

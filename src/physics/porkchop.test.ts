@@ -5,7 +5,7 @@ import { propagate } from './kepler'
 import { DEFAULT_PORKCHOP, computePorkchop, transferFor } from './porkchop'
 import type { PorkchopGrid } from './porkchop'
 import { jdFromIso } from './time'
-import { norm, sub } from './vec'
+import { cross, norm, sub } from './vec'
 
 const jd = (iso: string) => jdFromIso(`${iso}T00:00:00Z`)
 
@@ -95,18 +95,83 @@ describe('computePorkchop on the default grid (real Horizons ephemerides)', () =
     expect(grid.vInf[iArr * grid.nDep + iDep]).toBe(Math.fround(t.vInfArrKms))
   })
 
-  // Real best on the JPL Horizons ephemerides (src/data/generated), recorded 2026-10-22:
-  //   C3 = 9.1835 km²/s², depart 31 Oct 2026 (JD 2461344.5), arrive 20 Aug 2027 (JD 2461637.5),
-  //   TOF 293 d, arrival v∞ 2.712 km/s. Lowest C3 with TOF < 250 d: C3 = 11.95,
-  //   12 Nov 2026 → 18 Jul 2027. Lowest arrival v∞: 2.565 km/s, 6 Nov 2026 → 7 Sep 2027.
-  //   Within the brief's [7, 14] bound, so it was not widened.
-  it('finds the minimum-C3 cell with C3 in [7, 14] km²/s² and departure in Oct–Dec 2026', () => {
-    const { best } = grid
-    expect(best.c3).toBeGreaterThanOrEqual(7)
-    expect(best.c3).toBeLessThanOrEqual(14)
-    expect(best.depJd).toBeGreaterThanOrEqual(jd('2026-10-01'))
-    expect(best.depJd).toBeLessThan(jd('2027-01-01'))
+  // Validation against a published reference (spec §6).
+  //
+  // Reference: L. M. Burke, R. D. Falck, M. L. McGuire, "Interplanetary Mission Design Handbook:
+  // Earth-to-Mars Mission Opportunities 2026 to 2045", NASA/TM-2010-216764, NASA Glenn Research
+  // Center, Oct 2010. https://ntrs.nasa.gov/citations/20100037210 — Table 2 "Earth to Mars—2026
+  // Opportunity—Energy Minima" (p. 12) and Table 1 (p. 10: 2026 optimum C3 9.144, Type II).
+  // Conditions: ballistic (no deep-space manoeuvre), Mars flyby arrival (no weight on arrival v∞),
+  // MIDAS patched-conic optimiser, departure/arrival dates searched in 2-day increments, values
+  // printed to two decimals (p. 11). Type I = transfer angle < 180°, Type II = 180°–360° (p. 3).
+  //
+  // Ours: default grid (2 d × 3 d), JPL Horizons DE441/mar099 vectors, recorded 2026-10-23.
+  //
+  //   minimum of            reference (NASA/TM-2010-216764)            ours
+  //   C3, Type II          9.144  2026-10-31 → 2027-08-19 (292 d)     9.1835  2026-10-31 → 2027-08-20 (293 d)
+  //   C3, Type I           11.11  2026-11-14 → 2027-08-09 (268 d)     10.906  2026-11-14 → 2027-08-11 (270 d)
+  //   arrival v∞, Type II  2.565  2026-11-06 → 2027-09-08 (306 d)     2.5646  2026-11-06 → 2027-09-07 (305 d)
+  //
+  // Tolerances: C3 ±0.3 km²/s², v∞ ±0.05 km/s, each date ±3 days. Dates: our grid steps (2 d
+  // departure, 3 d arrival) put the cell up to 1–1.5 d off the true optimum, and the handbook's own
+  // 2-day search adds up to 1 d. Values: different ephemeris generations (the handbook predates
+  // DE441), MIDAS's two-decimal output (the handbook notes rounding ties between dates), and the
+  // grid quantisation along the minimum's valley. Worst measured difference: C3 −0.20 (Type I).
+  const REF = {
+    typeII: { c3: 9.144, vInfKms: 2.729, dep: '2026-10-31', arr: '2027-08-19' },
+    typeI: { c3: 11.11, vInfKms: 2.915, dep: '2026-11-14', arr: '2027-08-09' },
+    typeIIMinVInf: { c3: 9.646, vInfKms: 2.565, dep: '2026-11-06', arr: '2027-09-08' },
+  }
+  const C3_TOL = 0.3
+  const VINF_TOL = 0.05
+  const DATE_TOL_DAYS = 3
+
+  /** Per-type minima over the grid. Type II = prograde long way (cross(r1, r2) points to −z). */
+  function minima() {
+    const s = DEFAULT_PORKCHOP
+    type Cell = { c3: number; vInfKms: number; depJd: number; arrJd: number }
+    let typeI: Cell | null = null
+    let typeII: Cell | null = null
+    let typeIIMinVInf: Cell | null = null
+    for (let iArr = 0; iArr < grid.nArr; iArr++) {
+      for (let iDep = 0; iDep < grid.nDep; iDep++) {
+        if (Number.isNaN(grid.c3[iArr * grid.nDep + iDep]!)) continue
+        const t = transferFor(s.depStartJd + iDep * s.depStepDays, s.arrStartJd + iArr * s.arrStepDays)!
+        const cell = { c3: t.c3, vInfKms: t.vInfArrKms, depJd: t.depJd, arrJd: t.arrJd }
+        if (cross(t.r1, t.r2)[2] >= 0) {
+          if (!typeI || cell.c3 < typeI.c3) typeI = cell
+        } else {
+          if (!typeII || cell.c3 < typeII.c3) typeII = cell
+          if (!typeIIMinVInf || cell.vInfKms < typeIIMinVInf.vInfKms) typeIIMinVInf = cell
+        }
+      }
+    }
+    return { typeI: typeI!, typeII: typeII!, typeIIMinVInf: typeIIMinVInf! }
+  }
+
+  function expectMatches(ours: { c3: number; vInfKms: number; depJd: number; arrJd: number }, ref: (typeof REF)['typeII']) {
+    expect(Math.abs(ours.c3 - ref.c3)).toBeLessThanOrEqual(C3_TOL)
+    expect(Math.abs(ours.vInfKms - ref.vInfKms)).toBeLessThanOrEqual(VINF_TOL)
+    expect(Math.abs(ours.depJd - jd(ref.dep))).toBeLessThanOrEqual(DATE_TOL_DAYS)
+    expect(Math.abs(ours.arrJd - jd(ref.arr))).toBeLessThanOrEqual(DATE_TOL_DAYS)
+  }
+
+  it('overall minimum C3 matches the NASA handbook 2026 optimum (Type II, 9.144 km²/s², 31 Oct 2026 → 19 Aug 2027)', () => {
+    const { typeII } = minima()
+    expect(grid.best.c3).toBe(typeII.c3) // the 2026 optimum is Type II, in the handbook and here
+    expect(grid.best.depJd).toBe(typeII.depJd)
+    expect(grid.best.arrJd).toBe(typeII.arrJd)
+    expectMatches(typeII, REF.typeII)
   })
+
+  it('Type I minimum C3 matches the NASA handbook (11.11 km²/s², 14 Nov 2026 → 9 Aug 2027)', () => {
+    expectMatches(minima().typeI, REF.typeI)
+  })
+
+  it('Type II minimum arrival v∞ matches the NASA handbook (2.565 km/s, 6 Nov 2026 → 8 Sep 2027)', () => {
+    expectMatches(minima().typeIIMinVInf, REF.typeIIMinVInf)
+  })
+
 
   it('best is the minimum over valid cells and carries no NaN/Infinity', () => {
     const { best } = grid
