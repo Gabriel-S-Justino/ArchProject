@@ -5,7 +5,8 @@
 import { ContactShadows, Environment, Grid, Lightformer, Line, OrbitControls } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useReducedMotion } from 'motion/react'
-import { useEffect, useMemo, useRef, type RefObject } from 'react'
+import { Minus, Plus } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { formatNumber } from '@/components/status'
@@ -25,8 +26,36 @@ export default function Hangar({ rocket }: { rocket: RocketDesign }) {
   const reduced = useReducedMotion() === true
   const items = useMemo(() => callouts(layout), [layout])
   const labelEls = useRef<(HTMLDivElement | null)[]>([])
+  const zoom = useRef<ZoomFn | null>(null)
+  const wrap = useRef<HTMLDivElement>(null)
+  const [hint, setHint] = useState(false)
+
+  // The mouse wheel scrolls the page (the hangar sits in a scrolling plate); Ctrl/Cmd + wheel zooms.
+  // A native, non-passive listener: only the modified wheel is cancelled.
+  useEffect(() => {
+    const el = wrap.current
+    if (!el) return
+    let timer = 0
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        zoom.current?.(Math.exp(Math.max(-1, Math.min(1, e.deltaY / 400))))
+        setHint(false)
+        return
+      }
+      setHint(true)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setHint(false), 1600)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      window.clearTimeout(timer)
+    }
+  }, [])
+
   return (
-    <div className="absolute inset-0">
+    <div ref={wrap} className="absolute inset-0">
       <Canvas
         frameloop="demand"
         dpr={[1, 2]}
@@ -43,13 +72,36 @@ export default function Hangar({ rocket }: { rocket: RocketDesign }) {
         <RocketModel design={rocket} fairingOn assemble={!reduced} />
         <DimensionLine layout={layout} />
         <CalloutProjector items={items} els={labelEls} />
-        <FrameRig height={layout.height} radius={layout.radius} />
+        <FrameRig height={layout.height} radius={layout.radius} zoom={zoom} />
         <DevStats name="hangar" />
       </Canvas>
       <CalloutLabels items={items} els={labelEls} />
+      <div className="absolute right-3 bottom-3 flex flex-col" role="group" aria-label="Zoom">
+        <button type="button" onClick={() => zoom.current?.(1 / 1.25)} aria-label="Zoom in" className={zoomButton}>
+          <Plus aria-hidden />
+        </button>
+        <button type="button" onClick={() => zoom.current?.(1.25)} aria-label="Zoom out" className={cn(zoomButton, '-mt-px')}>
+          <Minus aria-hidden />
+        </button>
+      </div>
+      <p
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute bottom-3 left-3 border border-rule-strong bg-ground px-2 py-1 text-detail text-ink-2 transition-opacity duration-200',
+          hint ? 'opacity-100' : 'opacity-0',
+        )}
+      >
+        Ctrl + scroll to zoom
+      </p>
     </div>
   )
 }
+
+const zoomButton =
+  'grid size-8 place-items-center border border-rule-strong bg-ground text-ink-2 transition-colors hover:border-ink-3 hover:text-ink [&_svg]:size-3.5'
+
+/** Multiplies the camera's distance to the target by `factor` (clamped to the controls' limits). */
+type ZoomFn = (factor: number) => void
 
 function describe(l: RocketLayout): string {
   if (l.stages.length === 0) return '3D hangar: no stages yet'
@@ -219,7 +271,7 @@ function DimensionLine({ layout }: { layout: RocketLayout }) {
  * Orbit controls with limits, and auto-framing: whenever the stack's height (or the view's size)
  * changes, the target moves to mid-height and the distance re-fits, keeping the user's angle.
  */
-function FrameRig({ height, radius }: { height: number; radius: number }) {
+function FrameRig({ height, radius, zoom }: { height: number; radius: number; zoom: RefObject<ZoomFn | null> }) {
   const controls = useRef<OrbitControlsImpl>(null)
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const size = useThree((s) => s.size)
@@ -227,6 +279,21 @@ function FrameRig({ height, radius }: { height: number; radius: number }) {
   const reduced = useReducedMotion() === true
   const anim = useRef<{ from: THREE.Vector3; fromDist: number; t: number } | null>(null)
   const placed = useRef(false)
+
+  useEffect(() => {
+    zoom.current = (factor) => {
+      const c = controls.current
+      if (!c) return
+      const off = camera.position.clone().sub(c.target)
+      const d = THREE.MathUtils.clamp(off.length() * factor, c.minDistance, c.maxDistance)
+      camera.position.copy(c.target).addScaledVector(off.normalize(), d)
+      c.update()
+      invalidate()
+    }
+    return () => {
+      zoom.current = null
+    }
+  }, [zoom, camera, invalidate])
 
   const goal = useMemo(() => {
     const H = Math.max(height, 14)
@@ -278,10 +345,10 @@ function FrameRig({ height, radius }: { height: number; radius: number }) {
       ref={controls}
       makeDefault
       enablePan={false}
+      enableZoom={false}
       enableDamping={!reduced}
       dampingFactor={0.09}
       rotateSpeed={0.6}
-      zoomSpeed={0.7}
       minPolarAngle={THREE.MathUtils.degToRad(18)}
       maxPolarAngle={THREE.MathUtils.degToRad(94)}
     />

@@ -11,6 +11,8 @@ interface SceneStats {
   frames: number
   /** Longest frame since the 10th, ms (hitches: shader compiles, texture uploads). */
   worstMs: number
+  /** Camera position after the previous frame, m. */
+  cam: [number, number, number]
 }
 
 declare global {
@@ -26,14 +28,14 @@ export function DevStats({ name }: { name: string }) {
     if (!import.meta.env.DEV) return
     gl.info.autoReset = false
     window.__scene3d ??= {}
-    window.__scene3d[name] = { calls: 0, maxCalls: 0, triangles: 0, fps: 0, frames: 0, worstMs: 0 }
+    window.__scene3d[name] = { calls: 0, maxCalls: 0, triangles: 0, fps: 0, frames: 0, worstMs: 0, cam: [0, 0, 0] }
     return () => {
       gl.info.autoReset = true
       if (window.__scene3d) delete window.__scene3d[name]
     }
   }, [gl, name])
   // Runs first in each frame: the counters hold everything the previous frame drew (all passes).
-  useFrame(() => {
+  useFrame(({ camera }) => {
     if (!import.meta.env.DEV) return
     const s = window.__scene3d?.[name]
     if (!s) return
@@ -41,6 +43,7 @@ export function DevStats({ name }: { name: string }) {
     s.maxCalls = Math.max(s.maxCalls, s.calls)
     s.triangles = gl.info.render.triangles
     s.frames++
+    s.cam = [camera.position.x, camera.position.y, camera.position.z]
     gl.info.reset()
     const now = performance.now()
     if (s.frames > 10 && last.current.prev > 0) s.worstMs = Math.max(s.worstMs, now - last.current.prev)

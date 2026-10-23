@@ -161,7 +161,7 @@ export function RocketTab() {
           </div>
           <p className="mt-2 text-detail text-ink-3">
             {gl
-              ? 'Tanks and boosters to scale from the catalog; engine bells, interstages and fairings at approximate real sizes. Drag to turn, scroll to zoom.'
+              ? 'Tanks and boosters to scale from the catalog; engine bells, interstages and fairings at approximate real sizes. Drag to turn; Ctrl + scroll or the buttons to zoom.'
               : 'Side elevation to scale from the catalog’s tank and booster sizes.'}
           </p>
         </aside>
